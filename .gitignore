@@ -1,0 +1,100 @@
+# Web Scraper Inteligente - Git Ignore
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environment
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Cache files (large files)
+scraper_cache.db
+scraper_data.db
+web_scraper.db
+
+# Images (opcional - descomenta si no quieres subir las imágenes)
+# images/
+
+# Cache
+.cache/
+.pytest_cache/
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Node.js (Frontend)
+frontend/node_modules/
+frontend/.env
+frontend/build/
+frontend/dist/
+
+# Temporary files
+*.tmp
+*.temp
+temp/
+tmp/
+
+# Chrome Driver
+chromedriver*
+geckodriver*
+
+# Backup files
+*.bak
+*.backup
+*_backup.*
+
+# Auto-generated files
+auto_scraping.log
+scraper_cache.db

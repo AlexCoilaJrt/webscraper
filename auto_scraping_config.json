@@ -1,0 +1,127 @@
+{
+  "auto_scraping": {
+    "enabled": true,
+    "schedules": [
+      {
+        "name": "El Comercio - Cada 5 horas",
+        "url": "https://elcomercio.pe/",
+        "method": "auto",
+        "max_articles": 30,
+        "max_images": 15,
+        "category": "General",
+        "newspaper": "El Comercio",
+        "region": "Nacional",
+        "cron_schedule": "0 */5 * * *",
+        "enabled": true
+      },
+      {
+        "name": "El Popular - Cada 5 horas",
+        "url": "https://elpopular.pe/",
+        "method": "auto",
+        "max_articles": 25,
+        "max_images": 12,
+        "category": "General",
+        "newspaper": "El Popular",
+        "region": "Nacional",
+        "cron_schedule": "0 */5 * * *",
+        "enabled": true
+      },
+      {
+        "name": "Diario Sin Fronteras - Cada 5 horas",
+        "url": "https://diariosinfronteras.com.pe/",
+        "method": "auto",
+        "max_articles": 20,
+        "max_images": 10,
+        "category": "Regional",
+        "newspaper": "Diario Sin Fronteras",
+        "region": "Nacional",
+        "cron_schedule": "0 */5 * * *",
+        "enabled": true
+      },
+      {
+        "name": "El Peruano - Cada 5 horas",
+        "url": "https://elperuano.pe/economia",
+        "method": "auto",
+        "max_articles": 25,
+        "max_images": 12,
+        "category": "Economía",
+        "newspaper": "El Peruano",
+        "region": "Nacional",
+        "cron_schedule": "0 */5 * * *",
+        "enabled": true
+      },
+      {
+        "name": "Peru21 - Cada 5 horas",
+        "url": "https://peru21.pe/",
+        "method": "auto",
+        "max_articles": 25,
+        "max_images": 12,
+        "category": "General",
+        "newspaper": "Peru21",
+        "region": "Nacional",
+        "cron_schedule": "0 */5 * * *",
+        "enabled": true
+      },
+      {
+        "name": "Ojo - Cada 5 horas",
+        "url": "https://ojo.pe/",
+        "method": "auto",
+        "max_articles": 20,
+        "max_images": 10,
+        "category": "General",
+        "newspaper": "Ojo",
+        "region": "Nacional",
+        "cron_schedule": "0 */5 * * *",
+        "enabled": true
+      },
+      {
+        "name": "Trome - Cada 5 horas",
+        "url": "https://trome.pe/",
+        "method": "auto",
+        "max_articles": 20,
+        "max_images": 10,
+        "category": "General",
+        "newspaper": "Trome",
+        "region": "Nacional",
+        "cron_schedule": "0 */5 * * *",
+        "enabled": true
+      },
+      {
+        "name": "El Mundo - Cada 5 horas",
+        "url": "https://www.elmundo.es/",
+        "method": "auto",
+        "max_articles": 30,
+        "max_images": 15,
+        "category": "Internacional",
+        "newspaper": "Elmundo",
+        "region": "Extranjero",
+        "cron_schedule": "0 */5 * * *",
+        "enabled": true
+      },
+      {
+        "name": "La Vanguardia - Cada 5 horas",
+        "url": "https://www.lavanguardia.com/",
+        "method": "auto",
+        "max_articles": 30,
+        "max_images": 15,
+        "category": "Internacional",
+        "newspaper": "La Vanguardia",
+        "region": "Extranjero",
+        "cron_schedule": "0 */5 * * *",
+        "enabled": true
+      },
+      {
+        "name": "New York Times - Cada 5 horas",
+        "url": "https://www.nytimes.com/",
+        "method": "auto",
+        "max_articles": 25,
+        "max_images": 12,
+        "category": "Internacional",
+        "newspaper": "Nytimes",
+        "region": "Extranjero",
+        "cron_schedule": "0 */5 * * *",
+        "enabled": true
+      }
+    ]
+  }
+}
