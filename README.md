@@ -1,4 +1,4 @@
-# 🕷️ Web Scraper Inteligente
+# 🕷️ Web Scraper 
 
 Un sistema completo de web scraping con análisis inteligente, paginación automática y exportación de datos. Extrae artículos de múltiples periódicos y los almacena en una base de datos SQLite con interfaz web moderna.
 
