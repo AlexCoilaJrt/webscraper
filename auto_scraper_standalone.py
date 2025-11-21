@@ -9,6 +9,7 @@ import time
 from datetime import datetime
 import sys
 import os
+import re
 
 # Agregar el directorio actual al path para importar los módulos
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -29,11 +30,36 @@ logging.basicConfig(
 def load_config():
     """Cargar configuración de scraping automático"""
     try:
-        with open('auto_scraping_config.json', 'r', encoding='utf-8') as f:
+        # Permitir usar un archivo de configuración temporal desde variable de entorno
+        config_path = os.environ.get('AUTO_SCRAPING_CONFIG', 'auto_scraping_config.json')
+        with open(config_path, 'r', encoding='utf-8') as f:
             return json.load(f)
     except FileNotFoundError:
-        logging.error("❌ Archivo de configuración no encontrado")
+        logging.error(f"❌ Archivo de configuración no encontrado: {config_path}")
         return None
+
+def normalize_region_value(value):
+    if not value or not isinstance(value, str):
+        return 'extranjero'
+    normalized = re.sub(r'\s+', ' ', value).strip().lower()
+    if not normalized:
+        return 'extranjero'
+    
+    nacional_aliases = {
+        'nacional', 'nacionales', 'local', 'peru', 'perú', 'peruano', 'peruana',
+        'pe', 'national', 'nationwide', 'locales'
+    }
+    extranjero_aliases = {
+        'extranjero', 'internacional', 'international', 'global', 'mundo', 'mundial',
+        'world', 'abroad'
+    }
+    
+    if normalized in nacional_aliases:
+        return 'nacional'
+    if normalized in extranjero_aliases:
+        return 'extranjero'
+    
+    return normalized[:40]
 
 def save_articles_to_db(articles, category='', newspaper='', region=''):
     """Guardar artículos en la base de datos SQLite"""
@@ -41,37 +67,139 @@ def save_articles_to_db(articles, category='', newspaper='', region=''):
         import sqlite3
         from datetime import datetime
         
-        conn = sqlite3.connect('scraping_data.db')
+        manual_category_raw = category.strip() if isinstance(category, str) else ''
+        manual_category = ' '.join(manual_category_raw.split()) if manual_category_raw else ''
+        if manual_category and len(manual_category) > 80:
+            manual_category = manual_category[:80]
+
+        manual_region = normalize_region_value(region)
+
+        conn = sqlite3.connect('news_database.db')
         cursor = conn.cursor()
         
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS excluded_newspapers (
+                newspaper TEXT PRIMARY KEY,
+                excluded_at TEXT NOT NULL
+            )
+        """)
+        
+        if newspaper:
+            cursor.execute("DELETE FROM excluded_newspapers WHERE newspaper = ?", (newspaper,))
+        
         for article in articles:
-            # Verificar si el artículo ya existe
-            cursor.execute("SELECT id FROM articles WHERE url = ?", (article.get('url', ''),))
-            if cursor.fetchone():
-                continue  # Saltar si ya existe
+            # Generar article_id usando el mismo método que improved_scraper.py
+            article_url = article.get('url', '')
+            article_id = article.get('article_id', '')
             
-            # Insertar nuevo artículo
-            cursor.execute("""
-                INSERT INTO articles (
-                    title, content, url, summary, author, published_date, 
-                    scraped_at, category, newspaper, region, images_found, 
-                    images_downloaded, images_data
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                article.get('title', ''),
-                article.get('content', ''),
-                article.get('url', ''),
-                article.get('summary', ''),
-                article.get('author', ''),
-                article.get('published_date', ''),
-                datetime.now().isoformat(),
-                category,
-                newspaper,
-                region,
-                article.get('images_found', 0),
-                article.get('images_downloaded', 0),
-                json.dumps(article.get('images_data', []))
-            ))
+            # Si no hay article_id, generarlo basado en la URL normalizada
+            if not article_id and article_url:
+                import hashlib
+                from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
+                
+                # Normalizar URL (igual que en improved_scraper.py)
+                try:
+                    parsed = urlparse(article_url)
+                    path = parsed.path.rstrip('/')
+                    if not path:
+                        path = '/'
+                    
+                    # Quitar parámetros de tracking comunes
+                    query_params = parse_qs(parsed.query, keep_blank_values=True)
+                    tracking_params = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content',
+                                     'fbclid', 'gclid', 'ref', 'source', 'campaign', 'medium']
+                    filtered_params = {k: v for k, v in query_params.items() if k.lower() not in tracking_params}
+                    query = urlencode(filtered_params, doseq=True) if filtered_params else ''
+                    
+                    normalized_url = urlunparse((
+                        parsed.scheme,
+                        parsed.netloc.lower(),
+                        path,
+                        parsed.params,
+                        query,
+                        ''  # Quitar fragment
+                    ))
+                    
+                    # Generar ID basado en URL normalizada
+                    url_hash = hashlib.md5(normalized_url.encode()).hexdigest()[:12]
+                    article_id = f"article_{url_hash}"
+                except Exception as e:
+                    logging.warning(f"⚠️ Error generando article_id: {e}")
+                    article_id = f"auto_{hash(article_url) % 1000000000000:012d}"
+            
+            # Si aún no hay article_id, usar hash del título
+            if not article_id:
+                import hashlib
+                title = article.get('title', '')
+                if title:
+                    title_hash = hashlib.md5(title.encode()).hexdigest()[:12]
+                    article_id = f"article_{title_hash}"
+                else:
+                    article_id = f"auto_{hash(str(article)) % 1000000000000:012d}"
+            
+            # Verificar si el artículo ya existe por article_id o URL
+            cursor.execute("SELECT id FROM articles WHERE article_id = ? OR url = ?", (article_id, article_url))
+            existing = cursor.fetchone()
+            
+            # Preparar datos de imágenes
+            images_data = article.get('images_data', [])
+            if not isinstance(images_data, list):
+                images_data = []
+            images_json = json.dumps(images_data) if images_data else "[]"
+            images_found = len(images_data) if images_data else article.get('images_found', 0)
+            images_downloaded = min(article.get('images_downloaded', 0), images_found)
+            
+            if existing:
+                # Actualizar artículo existente
+                cursor.execute("""
+                    UPDATE articles SET
+                    title = ?, content = ?, summary = ?, author = ?, date = ?, 
+                    category = ?, newspaper = ?, url = ?,
+                    images_found = ?, images_downloaded = ?, images_data = ?, 
+                    scraped_at = ?, region = ?, user_category = ?
+                    WHERE article_id = ? OR url = ?
+                """, (
+                    article.get('title', ''),
+                    article.get('content', ''),
+                    article.get('summary', ''),
+                    article.get('author', ''),
+                    article.get('published_date', ''),
+                    manual_category or category or 'General',
+                    newspaper,
+                    article_url,
+                    images_found,
+                    images_downloaded,
+                    images_json,
+                    datetime.now().isoformat(),
+                    manual_region,
+                    manual_category,
+                    article_id,
+                    article_url
+                ))
+            else:
+                # Insertar nuevo artículo
+                cursor.execute("""
+                    INSERT INTO articles (
+                        title, content, summary, author, date, category, newspaper, url, 
+                        images_found, images_downloaded, images_data, scraped_at, article_id, region, user_category
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    article.get('title', ''),
+                    article.get('content', ''),
+                    article.get('summary', ''),
+                    article.get('author', ''),
+                    article.get('published_date', ''),
+                    manual_category or category or 'General',
+                    newspaper,
+                    article_url,
+                    images_found,
+                    images_downloaded,
+                    images_json,
+                    datetime.now().isoformat(),
+                    article_id,
+                    manual_region,
+                    manual_category
+                ))
         
         conn.commit()
         conn.close()
@@ -80,6 +208,26 @@ def save_articles_to_db(articles, category='', newspaper='', region=''):
     except Exception as e:
         logging.error(f"❌ Error guardando en base de datos: {e}")
         return False
+
+def load_excluded_newspapers():
+    """Obtener lista de periódicos excluidos de auto-actualización"""
+    try:
+        import sqlite3
+        conn = sqlite3.connect('news_database.db')
+        cursor = conn.cursor()
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS excluded_newspapers (
+                newspaper TEXT PRIMARY KEY,
+                excluded_at TEXT NOT NULL
+            )
+        """)
+        cursor.execute("SELECT newspaper FROM excluded_newspapers")
+        excluded = {row[0] for row in cursor.fetchall() if row[0]}
+        conn.close()
+        return excluded
+    except Exception as e:
+        logging.error(f"❌ Error cargando periódicos excluidos: {e}")
+        return set()
 
 def execute_scraping_standalone(schedule):
     """Ejecutar scraping independiente (sin API)"""
@@ -96,7 +244,22 @@ def execute_scraping_standalone(schedule):
         
         articles = []
         
-        if method == "hybrid":
+        if method == "auto" or method == "improved":
+            # Usar ImprovedScraper (método más confiable)
+            from improved_scraper import ImprovedScraper
+            scraper = ImprovedScraper()
+            try:
+                articles = scraper.scrape_articles(url, max_articles=max_articles)
+                logging.info(f"✅ ImprovedScraper: {len(articles)} artículos encontrados")
+                
+                # Verificar imágenes extraídas
+                articles_with_images = sum(1 for a in articles if a.get('images_data') and len(a.get('images_data', [])) > 0)
+                total_images = sum(len(a.get('images_data', [])) for a in articles)
+                logging.info(f"📷 Imágenes extraídas: {articles_with_images} artículos con imágenes ({total_images} imágenes totales)")
+            finally:
+                scraper.close()
+                
+        elif method == "hybrid":
             # Usar HybridDataCrawler
             crawler = HybridDataCrawler()
             try:
@@ -150,10 +313,33 @@ def execute_scraping_standalone(schedule):
                 logging.error(f"❌ Error en método básico: {e}")
                 articles = []
         
+        # Asegurar que las imágenes se extraigan correctamente
+        # ImprovedScraper ya devuelve images_data como lista de diccionarios
+        # Solo necesitamos asegurarnos de que haya al menos 1 imagen principal
+        for article in articles:
+            # Limitar a 1 imagen principal
+            if 'images_data' in article and isinstance(article['images_data'], list):
+                if len(article['images_data']) > 1:
+                    article['images_data'] = article['images_data'][:1]
+                # Asegurar que images_found refleje correctamente
+                article['images_found'] = len(article['images_data']) if article['images_data'] else 0
+            elif 'images_data' not in article:
+                # Si no tiene images_data, inicializarlo como lista vacía
+                article['images_data'] = []
+                article['images_found'] = 0
+            
+            # Asegurar que images_downloaded no exceda images_found
+            article['images_downloaded'] = min(article.get('images_downloaded', 0), article['images_found'])
+        
         # Guardar en base de datos
         if articles:
+            # Verificar imágenes antes de guardar
+            articles_with_images = sum(1 for a in articles if a.get('images_data') and len(a.get('images_data', [])) > 0)
+            total_images_found = sum(len(a.get('images_data', [])) for a in articles if a.get('images_data'))
+            
             if save_articles_to_db(articles, category, newspaper, region):
                 logging.info(f"✅ {len(articles)} artículos guardados en base de datos")
+                logging.info(f"📷 {articles_with_images} artículos con imágenes principales ({total_images_found} imágenes totales)")
             else:
                 logging.error("❌ Error guardando artículos en base de datos")
         
@@ -178,6 +364,11 @@ def main():
         logging.info("⏸️ Scraping automático deshabilitado")
         return
     
+    # Periódicos excluidos por el usuario
+    excluded_newspapers = load_excluded_newspapers()
+    if excluded_newspapers:
+        logging.info(f"⏸️ Periódicos excluidos: {', '.join(excluded_newspapers)}")
+    
     # Ejecutar cada programación
     schedules = auto_config.get("schedules", [])
     successful = 0
@@ -185,6 +376,10 @@ def main():
     
     for schedule in schedules:
         if schedule.get("enabled", False):
+            newspaper_name = schedule.get("newspaper", "")
+            if newspaper_name and newspaper_name in excluded_newspapers:
+                logging.info(f"⏭️ Saltando '{newspaper_name}' (excluido por el usuario)")
+                continue
             if execute_scraping_standalone(schedule):
                 successful += 1
             else:

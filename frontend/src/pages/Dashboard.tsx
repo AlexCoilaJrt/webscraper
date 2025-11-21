@@ -31,13 +31,21 @@ import {
   Analytics as AnalyticsIcon,
   Storage as StorageIcon,
   Public as PublicIcon,
-  AutoAwesome as AutoAwesomeIcon,
+  CheckCircle as CheckCircleIcon,
+  Star as StarIcon,
+  CardMembership as CardMembershipIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { apiService, Statistics, ScrapingStatus, Newspaper } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
+import ChatbotWidget from '../components/ChatbotWidget';
+import AdsCarousel from '../components/AdsCarousel';
+import ViralComments from '../components/ViralComments';
+import { api } from '../services/api';
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
+  const { isAdmin, hasPermission, refreshPermissions } = useAuth();
   const [statistics, setStatistics] = useState<Statistics | null>(null);
   const [scrapingStatus, setScrapingStatus] = useState<ScrapingStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -49,25 +57,69 @@ const Dashboard: React.FC = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedNewspaper, setSelectedNewspaper] = useState<Newspaper | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [isAutoUpdating, setIsAutoUpdating] = useState(false);
+  const [userSubscription, setUserSubscription] = useState<any>(null);
+
+  const loadUserSubscription = async () => {
+    try {
+      const response = await api.get('/subscriptions/user-subscription');
+      if (response.data && (response.data as any).subscription) {
+        setUserSubscription((response.data as any).subscription);
+      } else if (response.data && (response.data as any).default_plan) {
+        // Si no hay suscripción activa, usar plan freemium por defecto
+        setUserSubscription({
+          plan_name: 'freemium',
+          plan_display_name: 'Plan Gratuito',
+          features: (response.data as any).default_plan.features || []
+        });
+      }
+    } catch (err) {
+      console.error('Error loading subscription:', err);
+    }
+  };
+
+  const hasAutoUpdateAccess = () => {
+    // Admin siempre tiene acceso
+    if (isAdmin) return true;
+    // Usuarios con plan Premium o Enterprise tienen acceso
+    if (userSubscription) {
+      const planName = userSubscription.plan_name?.toLowerCase() || '';
+      return planName === 'premium' || planName === 'enterprise';
+    }
+    return false;
+  };
 
   useEffect(() => {
     loadDashboardData();
     loadNewspapers();
+    loadUserSubscription();
+    // Refrescar permisos al cargar el Dashboard
+    refreshPermissions();
     
-    // Poll for scraping status updates
+    // Poll for scraping status updates (solo si es admin)
+    if (isAdmin) {
     const interval = setInterval(loadScrapingStatus, 2000);
     return () => clearInterval(interval);
-  }, []);
+    }
+  }, [isAdmin]);
 
   const loadDashboardData = async () => {
     try {
       setLoading(true);
-      const [statsData, statusData] = await Promise.all([
-        apiService.getStatistics(),
-        apiService.getStatus()
-      ]);
+      // Cargar estadísticas siempre
+      const statsData = await apiService.getStatistics();
       setStatistics(statsData);
+      
+      // Solo cargar status si es admin
+      if (isAdmin) {
+        try {
+          const statusData = await apiService.getStatus();
       setScrapingStatus(statusData);
+        } catch (err) {
+          console.error('Error loading scraping status:', err);
+        }
+      }
+      
       setError(null);
     } catch (err) {
       setError('Error cargando datos del dashboard');
@@ -78,6 +130,7 @@ const Dashboard: React.FC = () => {
   };
 
   const loadScrapingStatus = async () => {
+    if (!isAdmin) return; // Solo admin puede ver el estado
     try {
       const statusData = await apiService.getStatus();
       setScrapingStatus(statusData);
@@ -127,6 +180,30 @@ const Dashboard: React.FC = () => {
     }
   };
 
+  const handleTriggerAutoUpdate = async () => {
+    setIsAutoUpdating(true);
+    try {
+      await apiService.triggerAutoUpdate();
+      // Recargar datos después de un breve delay
+      setTimeout(() => {
+        loadDashboardData();
+        loadNewspapers();
+      }, 2000);
+    } catch (error: any) {
+      console.error('Error triggering auto update:', error);
+      
+      // Mostrar mensaje de error más específico
+      if (error?.response?.status === 400) {
+        const errorMessage = error?.response?.data?.error || 'Ya hay un scraping en ejecución';
+        alert(`⚠️ ${errorMessage}`);
+      } else {
+        alert('❌ Error al iniciar la actualización automática. Inténtalo de nuevo.');
+      }
+    } finally {
+      setIsAutoUpdating(false);
+    }
+  };
+
   const handleClearAllData = async () => {
     setClearing(true);
     try {
@@ -149,18 +226,18 @@ const Dashboard: React.FC = () => {
 
   // Configuración de colores para el diseño
   const colors = {
-    primary: '#1976d2',
-    secondary: '#42a5f5',
-    success: '#4caf50',
-    warning: '#ff9800',
-    error: '#f44336',
-    info: '#00bcd4',
-    purple: '#9c27b0',
-    pink: '#e91e63',
-    gradient1: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    gradient2: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-    gradient3: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-    gradient4: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
+    primary: '#0ea5e9', // Celeste claro
+    secondary: '#38bdf8', // Celeste más claro
+    success: '#0ea5e9',
+    warning: '#38bdf8',
+    error: '#dc2626',
+    info: '#0ea5e9',
+    purple: '#0ea5e9',
+    pink: '#0ea5e9',
+    gradient1: 'linear-gradient(135deg, #0ea5e9 0%, #38bdf8 100%)', // Celeste claro a más claro
+    gradient2: 'linear-gradient(135deg, #38bdf8 0%, #0ea5e9 100%)', // Celeste más claro a claro
+    gradient3: 'linear-gradient(135deg, #0ea5e9 0%, #38bdf8 100%)', // Celeste claro a más claro
+    gradient4: 'linear-gradient(135deg, #38bdf8 0%, #0ea5e9 100%)', // Celeste más claro a claro
   };
 
   if (loading) {
@@ -211,7 +288,7 @@ const Dashboard: React.FC = () => {
               mx: 'auto',
               mb: 3,
               background: colors.gradient1,
-              boxShadow: '0 20px 40px rgba(25, 118, 210, 0.3)',
+              boxShadow: '0 20px 40px rgba(14, 165, 233, 0.15)',
               position: 'relative',
               zIndex: 2,
             }}
@@ -234,7 +311,7 @@ const Dashboard: React.FC = () => {
               zIndex: 2,
             }}
           >
-            WEB SCRAPING
+            PORTAL DE NOTICIAS
           </Typography>
           
           <Typography 
@@ -250,53 +327,81 @@ const Dashboard: React.FC = () => {
           >
             Sistema inteligente de extracción y análisis de datos web
           </Typography>
+          
+          {/* Botón para refrescar permisos (solo para usuarios no admin) */}
+          {!isAdmin && (
+            <Box sx={{ mt: 2, position: 'relative', zIndex: 2 }}>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={async () => {
+                  await refreshPermissions();
+                  // Recargar datos del dashboard
+                  loadDashboardData();
+                }}
+                sx={{
+                  borderRadius: 2,
+                  textTransform: 'none',
+                  fontSize: '0.75rem',
+                }}
+              >
+                🔄 Actualizar Permisos
+              </Button>
+            </Box>
+          )}
         </Box>
       </Fade>
 
-      {/* Botón de Limpieza */}
-      <Fade in timeout={1000}>
-        <Box sx={{ mb: 4, textAlign: 'center' }}>
-          <Button
-            variant="outlined"
-            color="error"
-            startIcon={<DeleteIcon />}
-            onClick={() => setClearDialogOpen(true)}
-            sx={{
-              borderRadius: 3,
-              px: 4,
-              py: 2,
-              fontWeight: 600,
-              textTransform: 'none',
-              borderWidth: 2,
-              fontSize: '1rem',
-              '&:hover': {
+      {/* Botón de Limpieza - Solo para Administradores */}
+      {isAdmin && (
+        <Fade in timeout={1000}>
+          <Box sx={{ mb: 4, textAlign: 'center' }}>
+            <Button
+              variant="outlined"
+              color="error"
+              startIcon={<DeleteIcon />}
+              onClick={() => setClearDialogOpen(true)}
+              sx={{
+                borderRadius: 3,
+                px: 4,
+                py: 2,
+                fontWeight: 600,
+                textTransform: 'none',
                 borderWidth: 2,
-                bgcolor: 'error.main',
-                color: 'white',
-                transform: 'translateY(-3px)',
-                boxShadow: '0 10px 25px rgba(244, 67, 54, 0.3)',
-              },
-              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-            }}
-          >
-            🗑️ Borrar Todos los Datos
-          </Button>
-        </Box>
-      </Fade>
+                fontSize: '1rem',
+                '&:hover': {
+                  borderWidth: 2,
+                  bgcolor: 'error.main',
+                  color: 'white',
+                  transform: 'translateY(-3px)',
+                  boxShadow: '0 10px 25px rgba(244, 67, 54, 0.3)',
+                },
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+              }}
+            >
+              Borrar Todos los Datos
+            </Button>
+          </Box>
+        </Fade>
+      )}
 
-      {/* Estado del Scraping */}
+      {/* Estado del Scraping - Solo para Administradores */}
+      {isAdmin && (
       <Fade in timeout={1200}>
         <Card
           sx={{
             mb: 4,
             borderRadius: 4,
             background: scrapingStatus?.is_running 
-              ? 'linear-gradient(135deg, #4caf50 0%, #8bc34a 100%)'
-              : 'linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%)',
-            color: scrapingStatus?.is_running ? 'white' : 'text.primary',
-            boxShadow: '0 10px 30px rgba(0, 0, 0, 0.1)',
+              ? 'linear-gradient(135deg, #0ea5e9 0%, #38bdf8 100%)'
+              : 'linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%)',
+            color: scrapingStatus?.is_running ? 'white' : '#0f172a',
+            boxShadow: scrapingStatus?.is_running 
+              ? '0 10px 30px rgba(14, 165, 233, 0.2)'
+              : '0 10px 30px rgba(0, 0, 0, 0.08)',
             overflow: 'hidden',
             position: 'relative',
+            border: scrapingStatus?.is_running ? 'none' : '1px solid rgba(0, 0, 0, 0.08)',
           }}
         >
           <CardContent sx={{ p: 4 }}>
@@ -305,29 +410,53 @@ const Dashboard: React.FC = () => {
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                   <Avatar
                     sx={{
-                      bgcolor: scrapingStatus?.is_running ? 'rgba(255,255,255,0.2)' : 'primary.main',
+                      bgcolor: scrapingStatus?.is_running 
+                        ? 'rgba(255,255,255,0.2)' 
+                        : 'linear-gradient(135deg, #0ea5e9 0%, #38bdf8 100%)',
                       mr: 2,
                       width: 60,
                       height: 60,
+                      color: scrapingStatus?.is_running ? 'white' : 'white',
                     }}
                   >
                     {scrapingStatus?.is_running ? (
-                      <AutoAwesomeIcon sx={{ fontSize: 30 }} />
+                      <WebIcon sx={{ fontSize: 30 }} />
                     ) : (
                       <DashboardIcon sx={{ fontSize: 30 }} />
                     )}
                   </Avatar>
                   <Box>
-                    <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>
+                    <Typography 
+                      variant="h4" 
+                      sx={{ 
+                        fontWeight: 700, 
+                        mb: 1,
+                        color: scrapingStatus?.is_running ? 'white' : '#0f172a',
+                      }}
+                    >
                       Estado del Scraping
                     </Typography>
-                    <Typography variant="h6" sx={{ opacity: 0.9 }}>
+                    <Typography 
+                      variant="h6" 
+                      sx={{ 
+                        color: scrapingStatus?.is_running ? 'rgba(255,255,255,0.95)' : '#475569',
+                        fontWeight: 600,
+                      }}
+                    >
                       {scrapingStatus?.is_running ? 'Sistema activo' : 'Sistema inactivo'}
                     </Typography>
                   </Box>
                 </Box>
                 
-                <Typography variant="body1" sx={{ opacity: 0.8, maxWidth: 500 }}>
+                <Typography 
+                  variant="body1" 
+                  sx={{ 
+                    maxWidth: 500,
+                    color: scrapingStatus?.is_running ? 'rgba(255,255,255,0.9)' : '#64748b',
+                    fontWeight: 500,
+                    lineHeight: 1.7,
+                  }}
+                >
                   {scrapingStatus?.is_running 
                     ? 'El sistema está extrayendo datos activamente. Puedes monitorear el progreso en tiempo real.'
                     : 'Configura los parámetros y presiona "Iniciar Scraping" para comenzar la extracción de datos.'
@@ -336,7 +465,7 @@ const Dashboard: React.FC = () => {
               </Grid>
               
               <Grid size={{ xs: 12, md: 4 }}>
-                <Box sx={{ textAlign: 'center' }}>
+                <Box sx={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 2 }}>
                   <Button
                     variant="contained"
                     size="large"
@@ -351,18 +480,55 @@ const Dashboard: React.FC = () => {
                       textTransform: 'none',
                       background: scrapingStatus?.is_running 
                         ? 'rgba(255,255,255,0.2)'
-                        : colors.gradient1,
+                        : 'linear-gradient(135deg, #0ea5e9 0%, #38bdf8 100%)',
+                      color: scrapingStatus?.is_running ? 'white' : 'white',
+                      border: scrapingStatus?.is_running ? '1px solid rgba(255,255,255,0.3)' : 'none',
+                      boxShadow: scrapingStatus?.is_running 
+                        ? 'none'
+                        : '0 4px 14px rgba(14, 165, 233, 0.3)',
                       '&:hover': {
                         background: scrapingStatus?.is_running 
                           ? 'rgba(255,255,255,0.3)'
-                          : colors.gradient2,
+                          : 'linear-gradient(135deg, #0284c7 0%, #0ea5e9 100%)',
                         transform: 'translateY(-2px)',
-                        boxShadow: '0 10px 25px rgba(0, 0, 0, 0.2)',
+                        boxShadow: scrapingStatus?.is_running 
+                          ? '0 4px 12px rgba(255,255,255,0.2)'
+                          : '0 6px 20px rgba(14, 165, 233, 0.4)',
                       },
                       transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                     }}
                   >
                     {scrapingStatus?.is_running ? 'Monitorear' : 'INICIAR SCRAPING'}
+                  </Button>
+                  
+                  <Button
+                    variant="outlined"
+                    size="large"
+                    startIcon={<WebIcon />}
+                    onClick={handleTriggerAutoUpdate}
+                    disabled={isAutoUpdating}
+                    sx={{
+                      borderRadius: 3,
+                      px: 4,
+                      py: 2,
+                      fontSize: '1rem',
+                      fontWeight: 600,
+                      textTransform: 'none',
+                      borderColor: scrapingStatus?.is_running ? 'rgba(255,255,255,0.5)' : '#4caf50',
+                      borderWidth: 2,
+                      color: scrapingStatus?.is_running ? 'white' : '#4caf50',
+                      '&:hover': {
+                        borderColor: scrapingStatus?.is_running ? 'rgba(255,255,255,0.7)' : '#45a049',
+                        backgroundColor: scrapingStatus?.is_running 
+                          ? 'rgba(255,255,255,0.1)'
+                          : 'rgba(76, 175, 80, 0.06)',
+                        transform: 'translateY(-1px)',
+                        borderWidth: 2,
+                      },
+                      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                    }}
+                  >
+                    {isAutoUpdating ? 'Actualizando...' : '🔄 ACTUALIZAR AUTOMÁTICO'}
                   </Button>
                 </Box>
               </Grid>
@@ -370,6 +536,7 @@ const Dashboard: React.FC = () => {
           </CardContent>
         </Card>
       </Fade>
+      )}
 
       {/* Métricas Principales */}
       <Fade in timeout={1400}>
@@ -384,7 +551,7 @@ const Dashboard: React.FC = () => {
                   position: 'relative',
                   overflow: 'hidden',
                   borderRadius: 4,
-                  boxShadow: '0 15px 35px rgba(102, 126, 234, 0.3)',
+                  boxShadow: '0 15px 35px rgba(14, 165, 233, 0.15)',
                   '&:hover': {
                     transform: 'translateY(-8px)',
                     boxShadow: '0 25px 50px rgba(102, 126, 234, 0.4)',
@@ -398,17 +565,44 @@ const Dashboard: React.FC = () => {
                       <ArticleIcon sx={{ fontSize: 28 }} />
                     </Avatar>
                     <Box>
-                      <Typography variant="h3" sx={{ fontWeight: 'bold', lineHeight: 1 }}>
+                      <Typography 
+                        variant="h3" 
+                        sx={{ 
+                          fontWeight: 'bold', 
+                          lineHeight: 1,
+                          color: 'white',
+                          textShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
+                          fontSize: { xs: '2rem', md: '2.5rem' },
+                        }}
+                      >
                         {statistics?.general?.total_articles || 0}
                       </Typography>
-                      <Typography variant="body2" sx={{ opacity: 0.9, fontSize: '0.9rem' }}>
+                      <Typography 
+                        variant="body2" 
+                        sx={{ 
+                          opacity: 0.95, 
+                          fontSize: '0.95rem',
+                          color: 'white',
+                          fontWeight: 600,
+                          textShadow: '0 1px 3px rgba(0, 0, 0, 0.2)',
+                          mt: 0.5,
+                        }}
+                      >
                         Artículos Extraídos
                       </Typography>
                     </Box>
                   </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <TrendingIcon sx={{ mr: 1, fontSize: 20 }} />
-                    <Typography variant="body2" sx={{ opacity: 0.9, fontSize: '0.8rem' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
+                    <TrendingIcon sx={{ mr: 1, fontSize: 20, color: 'white', opacity: 0.9 }} />
+                    <Typography 
+                      variant="body2" 
+                      sx={{ 
+                        opacity: 0.95, 
+                        fontSize: '0.85rem',
+                        color: 'white',
+                        fontWeight: 500,
+                      }}
+                    >
                       +12% vs mes anterior
                     </Typography>
                   </Box>
@@ -439,7 +633,7 @@ const Dashboard: React.FC = () => {
                   position: 'relative',
                   overflow: 'hidden',
                   borderRadius: 4,
-                  boxShadow: '0 15px 35px rgba(240, 147, 251, 0.3)',
+                  boxShadow: '0 15px 35px rgba(14, 165, 233, 0.15)',
                   '&:hover': {
                     transform: 'translateY(-8px)',
                     boxShadow: '0 25px 50px rgba(240, 147, 251, 0.4)',
@@ -453,17 +647,44 @@ const Dashboard: React.FC = () => {
                       <ImageIcon sx={{ fontSize: 28 }} />
                     </Avatar>
                     <Box>
-                      <Typography variant="h3" sx={{ fontWeight: 'bold', lineHeight: 1 }}>
+                      <Typography 
+                        variant="h3" 
+                        sx={{ 
+                          fontWeight: 'bold', 
+                          lineHeight: 1,
+                          color: 'white',
+                          textShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
+                          fontSize: { xs: '2rem', md: '2.5rem' },
+                        }}
+                      >
                         {statistics?.general?.total_images_downloaded || 0}
                       </Typography>
-                      <Typography variant="body2" sx={{ opacity: 0.9, fontSize: '0.9rem' }}>
+                      <Typography 
+                        variant="body2" 
+                        sx={{ 
+                          opacity: 0.95, 
+                          fontSize: '0.95rem',
+                          color: 'white',
+                          fontWeight: 600,
+                          textShadow: '0 1px 3px rgba(0, 0, 0, 0.2)',
+                          mt: 0.5,
+                        }}
+                      >
                         Imágenes Descargadas
                       </Typography>
                     </Box>
                   </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <TrendingIcon sx={{ mr: 1, fontSize: 20 }} />
-                    <Typography variant="body2" sx={{ opacity: 0.9, fontSize: '0.8rem' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
+                    <TrendingIcon sx={{ mr: 1, fontSize: 20, color: 'white', opacity: 0.9 }} />
+                    <Typography 
+                      variant="body2" 
+                      sx={{ 
+                        opacity: 0.95, 
+                        fontSize: '0.85rem',
+                        color: 'white',
+                        fontWeight: 500,
+                      }}
+                    >
                       +8% vs mes anterior
                     </Typography>
                   </Box>
@@ -508,17 +729,44 @@ const Dashboard: React.FC = () => {
                       <NewspaperIcon sx={{ fontSize: 28 }} />
                     </Avatar>
                     <Box>
-                      <Typography variant="h3" sx={{ fontWeight: 'bold', lineHeight: 1 }}>
+                      <Typography 
+                        variant="h3" 
+                        sx={{ 
+                          fontWeight: 'bold', 
+                          lineHeight: 1,
+                          color: 'white',
+                          textShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
+                          fontSize: { xs: '2rem', md: '2.5rem' },
+                        }}
+                      >
                         {statistics?.general?.total_newspapers || 0}
                       </Typography>
-                      <Typography variant="body2" sx={{ opacity: 0.9, fontSize: '0.9rem' }}>
+                      <Typography 
+                        variant="body2" 
+                        sx={{ 
+                          opacity: 0.95, 
+                          fontSize: '0.95rem',
+                          color: 'white',
+                          fontWeight: 600,
+                          textShadow: '0 1px 3px rgba(0, 0, 0, 0.2)',
+                          mt: 0.5,
+                        }}
+                      >
                         Periódicos Monitoreados
                       </Typography>
                     </Box>
                   </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <PublicIcon sx={{ mr: 1, fontSize: 20 }} />
-                    <Typography variant="body2" sx={{ opacity: 0.9, fontSize: '0.8rem' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
+                    <PublicIcon sx={{ mr: 1, fontSize: 20, color: 'white', opacity: 0.9 }} />
+                    <Typography 
+                      variant="body2" 
+                      sx={{ 
+                        opacity: 0.95, 
+                        fontSize: '0.85rem',
+                        color: 'white',
+                        fontWeight: 500,
+                      }}
+                    >
                       Fuentes activas
                     </Typography>
                   </Box>
@@ -563,17 +811,44 @@ const Dashboard: React.FC = () => {
                       <CategoryIcon sx={{ fontSize: 28 }} />
                     </Avatar>
                     <Box>
-                      <Typography variant="h3" sx={{ fontWeight: 'bold', lineHeight: 1 }}>
+                      <Typography 
+                        variant="h3" 
+                        sx={{ 
+                          fontWeight: 'bold', 
+                          lineHeight: 1,
+                          color: 'white',
+                          textShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
+                          fontSize: { xs: '2rem', md: '2.5rem' },
+                        }}
+                      >
                         {statistics?.general?.total_categories || 0}
                       </Typography>
-                      <Typography variant="body2" sx={{ opacity: 0.9, fontSize: '0.9rem' }}>
+                      <Typography 
+                        variant="body2" 
+                        sx={{ 
+                          opacity: 0.95, 
+                          fontSize: '0.95rem',
+                          color: 'white',
+                          fontWeight: 600,
+                          textShadow: '0 1px 3px rgba(0, 0, 0, 0.2)',
+                          mt: 0.5,
+                        }}
+                      >
                         Categorías Identificadas
                       </Typography>
                     </Box>
                   </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <TrendingIcon sx={{ mr: 1, fontSize: 20 }} />
-                    <Typography variant="body2" sx={{ opacity: 0.9, fontSize: '0.8rem' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
+                    <CategoryIcon sx={{ mr: 1, fontSize: 20, color: 'white', opacity: 0.9 }} />
+                    <Typography 
+                      variant="body2" 
+                      sx={{ 
+                        opacity: 0.95, 
+                        fontSize: '0.85rem',
+                        color: 'white',
+                        fontWeight: 500,
+                      }}
+                    >
                       +15% vs mes anterior
                     </Typography>
                   </Box>
@@ -596,6 +871,22 @@ const Dashboard: React.FC = () => {
         </Grid>
       </Fade>
 
+      {/* Carrusel de Anuncios y Comentarios Virales */}
+      <Fade in timeout={1600}>
+        <Grid container spacing={3} sx={{ mb: 4 }}>
+          {/* Carrusel de Anuncios - Visible para todos */}
+          <Grid size={{ xs: 12, md: hasPermission('view_social_media') ? 6 : 12 }}>
+            <AdsCarousel />
+          </Grid>
+          {/* Comentarios Virales - Solo con permiso */}
+          {hasPermission('view_social_media') && (
+            <Grid size={{ xs: 12, md: 6 }}>
+              <ViralComments />
+            </Grid>
+          )}
+        </Grid>
+      </Fade>
+
       {/* Gestión de Periódicos */}
       <Fade in timeout={2400}>
         <Card
@@ -603,7 +894,7 @@ const Dashboard: React.FC = () => {
             borderRadius: 4,
             background: colors.gradient2,
             color: 'white',
-            boxShadow: '0 15px 35px rgba(240, 147, 251, 0.3)',
+            boxShadow: '0 15px 35px rgba(14, 165, 233, 0.15)',
             overflow: 'hidden',
             position: 'relative',
             mb: 4,
@@ -691,7 +982,7 @@ const Dashboard: React.FC = () => {
             borderRadius: 4,
             background: colors.gradient1,
             color: 'white',
-            boxShadow: '0 15px 35px rgba(102, 126, 234, 0.3)',
+            boxShadow: '0 15px 35px rgba(14, 165, 233, 0.15)',
             overflow: 'hidden',
             position: 'relative',
           }}
@@ -703,89 +994,97 @@ const Dashboard: React.FC = () => {
             </Typography>
             
             <Grid container spacing={3}>
-              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                <Button
-                  variant="contained"
-                  fullWidth
-                  startIcon={<ArticleIcon />}
-                  onClick={() => navigate('/articles')}
-                  sx={{
-                    borderRadius: 3,
-                    py: 2,
-                    bgcolor: 'rgba(255,255,255,0.2)',
-                    '&:hover': { 
-                      bgcolor: 'rgba(255,255,255,0.3)',
-                      transform: 'translateY(-2px)',
-                    },
-                    transition: 'all 0.3s ease',
-                  }}
-                >
-                  Ver Artículos
-                </Button>
-              </Grid>
+              {hasPermission('view_articles') && (
+                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                  <Button
+                    variant="contained"
+                    fullWidth
+                    startIcon={<ArticleIcon />}
+                    onClick={() => navigate('/articles')}
+                    sx={{
+                      borderRadius: 3,
+                      py: 2,
+                      bgcolor: 'rgba(255,255,255,0.2)',
+                      '&:hover': { 
+                        bgcolor: 'rgba(255,255,255,0.3)',
+                        transform: 'translateY(-2px)',
+                      },
+                      transition: 'all 0.3s ease',
+                    }}
+                  >
+                    Ver Artículos
+                  </Button>
+                </Grid>
+              )}
               
-              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                <Button
-                  variant="contained"
-                  fullWidth
-                  startIcon={<ImageIcon />}
-                  onClick={() => navigate('/images')}
-                  sx={{
-                    borderRadius: 3,
-                    py: 2,
-                    bgcolor: 'rgba(255,255,255,0.2)',
-                    '&:hover': { 
-                      bgcolor: 'rgba(255,255,255,0.3)',
-                      transform: 'translateY(-2px)',
-                    },
-                    transition: 'all 0.3s ease',
-                  }}
-                >
-                  Galería de Imágenes
-                </Button>
-              </Grid>
+              {hasPermission('view_images') && (
+                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                  <Button
+                    variant="contained"
+                    fullWidth
+                    startIcon={<ImageIcon />}
+                    onClick={() => navigate('/images')}
+                    sx={{
+                      borderRadius: 3,
+                      py: 2,
+                      bgcolor: 'rgba(255,255,255,0.2)',
+                      '&:hover': { 
+                        bgcolor: 'rgba(255,255,255,0.3)',
+                        transform: 'translateY(-2px)',
+                      },
+                      transition: 'all 0.3s ease',
+                    }}
+                  >
+                    Galería de Imágenes
+                  </Button>
+                </Grid>
+              )}
               
-              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                <Button
-                  variant="contained"
-                  fullWidth
-                  startIcon={<AnalyticsIcon />}
-                  onClick={() => navigate('/statistics')}
-                  sx={{
-                    borderRadius: 3,
-                    py: 2,
-                    bgcolor: 'rgba(255,255,255,0.2)',
-                    '&:hover': { 
-                      bgcolor: 'rgba(255,255,255,0.3)',
-                      transform: 'translateY(-2px)',
-                    },
-                    transition: 'all 0.3s ease',
-                  }}
-                >
-                  Ver Estadísticas
-                </Button>
-              </Grid>
+              {hasPermission('view_analytics') && (
+                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                  <Button
+                    variant="contained"
+                    fullWidth
+                    startIcon={<AnalyticsIcon />}
+                    onClick={() => navigate('/statistics')}
+                    sx={{
+                      borderRadius: 3,
+                      py: 2,
+                      bgcolor: 'rgba(255,255,255,0.2)',
+                      '&:hover': { 
+                        bgcolor: 'rgba(255,255,255,0.3)',
+                        transform: 'translateY(-2px)',
+                      },
+                      transition: 'all 0.3s ease',
+                    }}
+                  >
+                    Ver Estadísticas
+                  </Button>
+                </Grid>
+              )}
               
-              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                <Button
-                  variant="contained"
-                  fullWidth
-                  startIcon={<StorageIcon />}
-                  onClick={() => navigate('/database')}
-                  sx={{
-                    borderRadius: 3,
-                    py: 2,
-                    bgcolor: 'rgba(255,255,255,0.2)',
-                    '&:hover': { 
-                      bgcolor: 'rgba(255,255,255,0.3)',
-                      transform: 'translateY(-2px)',
-                    },
-                    transition: 'all 0.3s ease',
-                  }}
-                >
-                  Configurar BD
-                </Button>
-              </Grid>
+              {hasPermission('manage_database') && (
+                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                  <Button
+                    variant="contained"
+                    fullWidth
+                    startIcon={<StorageIcon />}
+                    onClick={() => navigate('/database')}
+                    sx={{
+                      borderRadius: 3,
+                      py: 2,
+                      bgcolor: 'rgba(255,255,255,0.2)',
+                      '&:hover': { 
+                        bgcolor: 'rgba(255,255,255,0.3)',
+                        transform: 'translateY(-2px)',
+                      },
+                      transition: 'all 0.3s ease',
+                    }}
+                  >
+                    Configurar BD
+                  </Button>
+                </Grid>
+              )}
             </Grid>
           </CardContent>
         </Card>
@@ -898,10 +1197,13 @@ const Dashboard: React.FC = () => {
             startIcon={deleting ? null : <DeleteIcon />}
             sx={{ borderRadius: 2 }}
           >
-            {deleting ? 'Eliminando...' : '🗑️ Eliminar Periódico'}
+            {deleting ? 'Eliminando...' : 'Eliminar Periódico'}
           </Button>
         </DialogActions>
       </Dialog>
+      
+      {/* Chatbot flotante */}
+      <ChatbotWidget />
     </Container>
   );
 };

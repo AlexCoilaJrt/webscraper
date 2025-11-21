@@ -92,6 +92,7 @@ fi
 # Función para limpiar procesos al salir
 cleanup() {
     print_status "Cerrando aplicaciones..."
+    kill $WEBSOCKET_PID 2>/dev/null
     kill $BACKEND_PID 2>/dev/null
     kill $FRONTEND_PID 2>/dev/null
     exit 0
@@ -99,6 +100,14 @@ cleanup() {
 
 # Capturar señales de interrupción
 trap cleanup SIGINT SIGTERM
+
+# Iniciar WebSocket server
+print_status "Iniciando servidor WebSocket..."
+python websocket_server.py &
+WEBSOCKET_PID=$!
+
+# Esperar un poco para que el WebSocket se inicie
+sleep 2
 
 # Iniciar backend
 print_status "Iniciando backend API..."
@@ -134,7 +143,7 @@ echo ""
 echo "🎉 ¡Web Scraper iniciado correctamente!"
 echo "================================"
 echo "📊 Dashboard: http://localhost:3000"
-echo "🔧 API: http://localhost:5001"
+echo "🔧 API: http://localhost:5002"
 echo "📚 Documentación: Ver README.md"
 echo ""
 echo "Presiona Ctrl+C para detener ambas aplicaciones"

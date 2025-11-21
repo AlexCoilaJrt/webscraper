@@ -9,6 +9,8 @@ requests==2.31.0
 beautifulsoup4==4.12.2
 selenium==4.15.2
 webdriver-manager==4.0.1
+undetected-chromedriver==3.5.4
+playwright==1.40.0
 
 # Base de Datos
 sqlalchemy==2.0.21
@@ -22,9 +24,20 @@ openpyxl==3.1.2
 python-dateutil==2.8.2
 urllib3==2.0.4
 lxml==4.9.3
+PyJWT==2.8.0
+APScheduler==3.10.4
 
 # Logging y Configuración
 python-dotenv==1.0.0
+
+# Análisis de Sentimiento y Procesamiento de Texto
+textblob==0.17.1
+vaderSentiment==3.3.2
+nltk==3.8.1
+
+# Reddit API
+praw==7.7.1
+google-api-python-client==2.108.0
 
 # Desarrollo (opcional)
 pytest==7.4.2

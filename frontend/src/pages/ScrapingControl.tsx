@@ -26,11 +26,18 @@ import {
   Info as InfoIcon,
 } from '@mui/icons-material';
 import { apiService, ScrapingConfig, ScrapingStatus } from '../services/api';
+import { api } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
+import { Alert as MuiAlert } from '@mui/material';
 
 const ScrapingControl: React.FC = () => {
+  const { isAdmin } = useAuth();
+  const [userSubscription, setUserSubscription] = useState<any>(null);
+  const [usageLimits, setUsageLimits] = useState<any>(null);
+  
   const [config, setConfig] = useState<ScrapingConfig>({
     url: '',
-    max_articles: 50,
+    max_articles: 0, // 0 = extraer todos los artículos disponibles (o límite del plan)
     max_images: 50,
     method: 'auto',
     download_images: true,
@@ -46,11 +53,40 @@ const ScrapingControl: React.FC = () => {
 
   useEffect(() => {
     loadStatus();
+    loadUserSubscription();
+    loadUsageLimits();
     
     // Poll for status updates
     const interval = setInterval(loadStatus, 2000);
     return () => clearInterval(interval);
   }, []);
+
+  const loadUserSubscription = async () => {
+    try {
+      const response = await api.get('/subscriptions/user-subscription');
+      if (response.data && (response.data as any).subscription) {
+        setUserSubscription((response.data as any).subscription);
+      }
+    } catch (err) {
+      console.error('Error loading subscription:', err);
+    }
+  };
+
+  const loadUsageLimits = async () => {
+    try {
+      const response = await api.get('/subscriptions/usage-limits');
+      if (response.data && (response.data as any).limits) {
+        setUsageLimits((response.data as any).limits);
+        // Ajustar max_images por defecto según el plan
+        const maxImages = (response.data as any).limits.max_images;
+        if (maxImages && maxImages !== -1 && maxImages < 50) {
+          setConfig(prev => ({ ...prev, max_images: maxImages }));
+        }
+      }
+    } catch (err) {
+      console.error('Error loading usage limits:', err);
+    }
+  };
 
   const loadStatus = async () => {
     try {
@@ -91,8 +127,12 @@ const ScrapingControl: React.FC = () => {
     } catch (err: any) {
       if (err.response?.status === 409 && err.response?.data?.duplicate) {
         setError(err.response.data.message || 'Esta URL ya ha sido scrapeada anteriormente');
+      } else if (err.response?.status === 429) {
+        // Límite excedido
+        const errorMsg = err.response?.data?.message || err.response?.data?.error || 'Límite de uso excedido';
+        setError(errorMsg);
       } else {
-        setError(err.response?.data?.error || 'Error iniciando el scraping');
+        setError(err.response?.data?.error || err.response?.data?.message || 'Error iniciando el scraping');
       }
     } finally {
       setLoading(false);
@@ -114,11 +154,72 @@ const ScrapingControl: React.FC = () => {
 
   const isRunning = scrapingStatus?.is_running || false;
 
+  const getPlanDisplayName = () => {
+    if (isAdmin) return 'Plan Administrador';
+    if (userSubscription) return userSubscription.plan_display_name || userSubscription.plan_name || 'Plan Gratuito';
+    return 'Plan Gratuito';
+  };
+
+  const getRemainingArticles = () => {
+    if (!usageLimits) return null;
+    if (usageLimits.max_articles === -1) return 'Ilimitado';
+    const remaining = usageLimits.max_articles - usageLimits.current_articles;
+    return Math.max(0, remaining);
+  };
+
+  const getRemainingImages = () => {
+    if (!usageLimits) return null;
+    if (usageLimits.max_images === -1) return 'Ilimitado';
+    return usageLimits.max_images;
+  };
+
+  const isNearLimit = () => {
+    if (!usageLimits || usageLimits.max_articles === -1) return false;
+    const percentage = (usageLimits.current_articles / usageLimits.max_articles) * 100;
+    return percentage >= 80;
+  };
+
   return (
     <Box>
-      <Typography variant="h4" component="h1" gutterBottom sx={{ mb: 4 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
+        <Typography variant="h4" component="h1">
         Control de Scraping
       </Typography>
+        {userSubscription && (
+          <Chip 
+            label={getPlanDisplayName()} 
+            color={isAdmin ? 'error' : userSubscription.plan_name === 'premium' ? 'primary' : userSubscription.plan_name === 'enterprise' ? 'secondary' : 'default'}
+            sx={{ fontWeight: 600 }}
+          />
+        )}
+      </Box>
+
+      {/* Información de límites del plan */}
+      {usageLimits && !isAdmin && (
+        <MuiAlert 
+          severity={isNearLimit() ? 'warning' : 'info'} 
+          icon={<InfoIcon />}
+          sx={{ mb: 3 }}
+        >
+          <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
+            Límites de tu plan ({getPlanDisplayName()}):
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
+            <Typography variant="body2">
+              📰 Artículos: <strong>{usageLimits.current_articles}</strong> / {usageLimits.max_articles === -1 ? 'Ilimitado' : usageLimits.max_articles} 
+              {usageLimits.max_articles !== -1 && ` (Restantes: ${getRemainingArticles()})`}
+            </Typography>
+            <Typography variant="body2">
+              🖼️ Imágenes por scraping: <strong>{getRemainingImages()}</strong>
+            </Typography>
+          </Box>
+          {isNearLimit() && (
+            <Typography variant="body2" sx={{ mt: 1, fontWeight: 600 }}>
+              ⚠️ Estás cerca del límite. Considera actualizar tu plan para obtener más capacidad.
+            </Typography>
+          )}
+        </MuiAlert>
+      )}
 
       <Grid container spacing={3}>
         {/* Configuration Panel */}
@@ -200,7 +301,16 @@ const ScrapingControl: React.FC = () => {
                       onChange={handleInputChange('max_articles')}
                       fullWidth
                       disabled={isRunning}
-                      inputProps={{ min: 1, max: 2000 }}
+                      inputProps={{ 
+                        min: 0, 
+                        max: isAdmin || (usageLimits && usageLimits.max_articles === -1) ? 2000 : usageLimits?.max_articles || 50
+                      }}
+                      helperText={
+                        isAdmin || (usageLimits && usageLimits.max_articles === -1)
+                          ? (config.max_articles === 0 ? "0 = Extraer TODOS los artículos disponibles" : "Ingresa 0 para extraer todos los artículos disponibles")
+                          : `Máximo según tu plan: ${usageLimits?.max_articles || 50} artículos/día. 0 = usar límite restante (${getRemainingArticles()})`
+                      }
+                      placeholder="0 = límite del plan"
                     />
                   </Grid>
                   <Grid size={{ xs: 6 }}>
@@ -211,7 +321,15 @@ const ScrapingControl: React.FC = () => {
                       onChange={handleInputChange('max_images')}
                       fullWidth
                       disabled={isRunning}
-                      inputProps={{ min: 0, max: 500 }}
+                      inputProps={{ 
+                        min: 0, 
+                        max: isAdmin || (usageLimits && usageLimits.max_images === -1) ? 500 : usageLimits?.max_images || 10
+                      }}
+                      helperText={
+                        isAdmin || (usageLimits && usageLimits.max_images === -1)
+                          ? "Máximo de imágenes a descargar"
+                          : `Máximo según tu plan: ${usageLimits?.max_images || 10} imágenes por scraping`
+                      }
                     />
                   </Grid>
                 </Grid>

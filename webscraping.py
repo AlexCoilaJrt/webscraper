@@ -1021,7 +1021,7 @@ class AdvancedScraper:
         domain = urlparse(url).netloc
         return domain.replace('www.', '').split('.')[0].title()
     
-    def scrape_single_article(self, url: str, structure: Dict = None, extract_images: bool = True, max_images_per_article: int = 3) -> Optional[Dict]:
+    def scrape_single_article(self, url: str, structure: Dict = None, extract_images: bool = True, max_images_per_article: int = 10) -> Optional[Dict]:
         """Extraer datos de un artículo usando Selenium con imágenes opcionales"""
         self.init_selenium()
         
@@ -1064,14 +1064,16 @@ class AdvancedScraper:
                         img_class = img_info.get('class', '').lower()
                         img_url = img_info.get('url', '').lower()
                         
-                        # Solo descargar imágenes que parecen relevantes
+                        # Descargar más imágenes - filtro menos restrictivo
                         is_relevant = (
-                            any(keyword in alt_text for keyword in ['noticia', 'imagen', 'foto', 'foto principal']) or
-                            any(keyword in img_class for keyword in ['main', 'featured', 'principal', 'hero']) or
-                            any(keyword in img_url for keyword in ['/noticias/', '/imagenes/', '/fotos/'])
+                            any(keyword in alt_text for keyword in ['noticia', 'imagen', 'foto', 'foto principal', 'photo', 'picture', 'image']) or
+                            any(keyword in img_class for keyword in ['main', 'featured', 'principal', 'hero', 'content', 'article', 'news']) or
+                            any(keyword in img_url for keyword in ['/noticias/', '/imagenes/', '/fotos/', '/images/', '/photos/', '/media/']) or
+                            not alt_text  # Si no tiene alt_text, intentar descargar
                         )
                         
-                        if is_relevant or not alt_text:  # Si no tiene alt_text, intentar descargar
+                        # Descargar si es relevante O si no tiene alt_text (más permisivo)
+                        if is_relevant:
                             local_path = self.image_manager.download_image(img_info, article_id)
                             if local_path:
                                 img_data = self.image_manager.get_image_info(local_path)
@@ -1166,7 +1168,7 @@ class AdvancedScraper:
         
         return summary.strip() + "..." if summary else content[:max_length] + "..."
     
-    def crawl_and_scrape(self, url: str, max_articles: int = 20, progress_callback=None, extract_images: bool = True, max_images_per_article: int = 3, pause_time: float = 0.5) -> List[Dict]:
+    def crawl_and_scrape(self, url: str, max_articles: int = 20, progress_callback=None, extract_images: bool = True, max_images_per_article: int = 10, pause_time: float = 0.5) -> List[Dict]:
         """Crawlear y extraer múltiples artículos con imágenes opcionales - OPTIMIZADO"""
         self.init_selenium()
         
