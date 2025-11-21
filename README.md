@@ -1,4 +1,4 @@
-# 🕷️ Web Scraper Inteligente
+# 🕷️ Web Scraper 
 
 Un sistema completo de web scraping con análisis inteligente, análisis de sentimientos, sistema de anuncios, chatbot con LLM, gestión de usuarios y suscripciones. Extrae artículos de múltiples periódicos y los almacena en una base de datos SQLite con interfaz web moderna.
 
