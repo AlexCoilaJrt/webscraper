@@ -303,31 +303,206 @@ def _can_access_smart_ads_integration(user_id: int) -> bool:
 # ============================================================
 # LLM gratuito vía Ollama (opcional)
 # ============================================================
-LLM_PROVIDER = os.environ.get('LLM_PROVIDER', 'ollama')  # 'ollama' | 'openrouter'
-LLM_MODEL = os.environ.get('LLM_MODEL', 'llama3')        # ej. ollama: 'llama3', openrouter: 'meta-llama/llama-3.1-8b-instruct'
+# Configuración de LLM - Prioriza APIs gratuitas
+# Por defecto usa Hugging Face (gratuito sin key) o Groq (requiere key pero más rápido)
+LLM_PROVIDER = os.environ.get('LLM_PROVIDER', 'huggingface').lower()  # Por defecto Hugging Face (gratuito sin key)
+LLM_MODEL = os.environ.get('LLM_MODEL', 'mistralai/Mistral-7B-Instruct-v0.2')  # Modelo gratuito de Hugging Face
 OPENROUTER_API_KEY = os.environ.get('OPENROUTER_API_KEY', '')
+GROQ_API_KEY = os.environ.get('GROQ_API_KEY', '')  # Opcional: mejora límites
+HUGGINGFACE_API_KEY = os.environ.get('HUGGINGFACE_API_KEY', '')  # Opcional para Hugging Face
 CHAT_FALLBACK_SCRAPE = os.environ.get('CHAT_FALLBACK_SCRAPE', 'false').lower() == 'true'
 
 def _llm_available() -> bool:
-    # OpenRouter: disponible si hay API key
-    if LLM_PROVIDER == 'openrouter':
-        return bool(OPENROUTER_API_KEY)
+    """Verificar si hay un LLM disponible (gratuito o configurado). Siempre retorna True para intentar APIs gratuitas."""
+    import requests  # type: ignore
+    
+    # Siempre intentar APIs gratuitas sin key primero
+    # Si hay proveedor configurado con key, también está disponible
+    if LLM_PROVIDER == 'groq' and GROQ_API_KEY:
+        return True
+    
+    if LLM_PROVIDER == 'huggingface' and HUGGINGFACE_API_KEY:
+        return True
+    
+    if LLM_PROVIDER == 'openrouter' and OPENROUTER_API_KEY:
+        return True
+    
     # Ollama: comprobar servidor local
     if LLM_PROVIDER == 'ollama':
         try:
-            import requests  # type: ignore
             r = requests.get('http://localhost:11434/api/tags', timeout=1)
             return r.status_code == 200
         except Exception:
-            return False
-    return False
+            pass
+    
+    # Siempre retornar True para intentar APIs gratuitas sin key
+    return True
+
+def _llm_generate_free_no_key(prompt: str, system_prompt: str = '') -> Optional[str]:
+    """Intentar generar texto usando APIs gratuitas sin key (múltiples intentos)."""
+    import requests  # type: ignore
+    
+    messages = []
+    if system_prompt:
+        messages.append({"role": "system", "content": system_prompt})
+    messages.append({"role": "user", "content": prompt})
+    
+    # Intentar múltiples APIs gratuitas sin key
+    apis_to_try = [
+        # 1. Together AI (gratuito sin key para algunos modelos)
+        {
+            "name": "Together AI",
+            "url": "https://api.together.xyz/v1/chat/completions",
+            "headers": {"Content-Type": "application/json"},
+            "body": {
+                "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
+                "messages": messages,
+                "max_tokens": 200,
+                "temperature": 0.7
+            },
+            "timeout": 10
+        },
+        # 2. Perplexity (puede funcionar sin key en algunos casos)
+        {
+            "name": "Perplexity",
+            "url": "https://api.perplexity.ai/chat/completions",
+            "headers": {"Content-Type": "application/json"},
+            "body": {
+                "model": "llama-3.1-8b-instant",
+                "messages": messages,
+                "max_tokens": 200,
+                "temperature": 0.7
+            },
+            "timeout": 10
+        },
+        # 3. DeepInfra (gratuito con límites)
+        {
+            "name": "DeepInfra",
+            "url": "https://api.deepinfra.com/v1/openai/chat/completions",
+            "headers": {"Content-Type": "application/json"},
+            "body": {
+                "model": "meta-llama/Llama-2-7b-chat-hf",
+                "messages": messages,
+                "max_tokens": 200,
+                "temperature": 0.7
+            },
+            "timeout": 10
+        }
+    ]
+    
+    for api in apis_to_try:
+        try:
+            r = requests.post(api["url"], headers=api["headers"], json=api["body"], timeout=api["timeout"])
+            if r.status_code == 200:
+                data = r.json()
+                result = data.get('choices', [{}])[0].get('message', {}).get('content')
+                if result:
+                    logger.info(f"✅ LLM funcionó con {api['name']}")
+                    return result
+        except Exception as e:
+            logger.debug(f"API {api['name']} falló: {e}")
+            continue
+    
+    return None
 
 def _llm_generate(prompt: str, system_prompt: str = '') -> Optional[str]:
-    """Generar texto usando el proveedor configurado."""
+    """Generar texto usando el proveedor configurado (prioriza APIs gratuitas)."""
     try:
         import requests  # type: ignore
-        if LLM_PROVIDER == 'openrouter' and OPENROUTER_API_KEY:
-            # OpenRouter Chat Completions
+        
+        # Primero intentar APIs gratuitas sin key
+        result = _llm_generate_free_no_key(prompt, system_prompt)
+        if result:
+            return result
+        
+        # Si fallan, intentar con el proveedor configurado
+        # Groq: API gratuita y muy rápida (recomendada)
+        if LLM_PROVIDER == 'groq':
+            groq_api_key = os.environ.get('GROQ_API_KEY', '')
+            if not groq_api_key:
+                # Si no hay key, intentar usar Hugging Face como fallback automático
+                logger.info("Groq requiere API key, intentando Hugging Face como alternativa gratuita")
+                # Cambiar temporalmente a Hugging Face (nueva API)
+                hf_token = os.environ.get('HUGGINGFACE_API_KEY', '')
+                model = "mistralai/Mistral-7B-Instruct-v0.2"
+                headers = {
+                    "Authorization": f"Bearer {hf_token}" if hf_token else "",
+                    "Content-Type": "application/json"
+                }
+                messages = []
+                if system_prompt:
+                    messages.append({"role": "system", "content": system_prompt})
+                messages.append({"role": "user", "content": prompt})
+                body = {
+                    "model": model,
+                    "messages": messages,
+                    "max_tokens": 200,
+                    "temperature": 0.7
+                }
+                try:
+                    r = requests.post("https://router.huggingface.co/chat/completions", headers=headers, json=body, timeout=12)
+                    if r.status_code == 200:
+                        data = r.json()
+                        return data.get('choices', [{}])[0].get('message', {}).get('content')
+                except Exception as e:
+                    logger.warning(f"Hugging Face fallback error: {e}")
+                return None
+            
+            # Groq con API key
+            headers = {
+                "Authorization": f"Bearer {groq_api_key}",
+                "Content-Type": "application/json"
+            }
+            # Modelos gratuitos de Groq: llama-3.1-8b-instant, mixtral-8x7b-32768, gemma-7b-it
+            model = LLM_MODEL if LLM_MODEL else "llama-3.1-8b-instant"
+            body = {
+                "model": model,
+                "messages": [
+                    {"role": "system", "content": (system_prompt or "Eres un asistente amable del portal de noticias. Responde en español con calidez y precisión.")},
+                    {"role": "user", "content": prompt}
+                ],
+                "temperature": 0.7,
+                "max_tokens": 200  # Respuestas más cortas = más rápidas
+            }
+            r = requests.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=body, timeout=8)
+            if r.status_code == 200:
+                data = r.json()
+                return data.get('choices', [{}])[0].get('message', {}).get('content')
+            else:
+                logger.warning(f"Groq error {r.status_code}: {r.text[:200]}")
+                return None
+        
+        # Hugging Face: API gratuita (nueva URL router.huggingface.co)
+        elif LLM_PROVIDER == 'huggingface':
+            hf_token = os.environ.get('HUGGINGFACE_API_KEY', '')
+            model = LLM_MODEL if LLM_MODEL else "mistralai/Mistral-7B-Instruct-v0.2"
+            headers = {
+                "Authorization": f"Bearer {hf_token}" if hf_token else "",
+                "Content-Type": "application/json"
+            }
+            # Nueva API de Hugging Face (router.huggingface.co)
+            messages = []
+            if system_prompt:
+                messages.append({"role": "system", "content": system_prompt})
+            messages.append({"role": "user", "content": prompt})
+            
+            body = {
+                "model": model,
+                "messages": messages,
+                "max_tokens": 200,
+                "temperature": 0.7
+            }
+            # Usar la nueva URL del router
+            r = requests.post("https://router.huggingface.co/chat/completions", headers=headers, json=body, timeout=12)
+            if r.status_code == 200:
+                data = r.json()
+                return data.get('choices', [{}])[0].get('message', {}).get('content')
+            else:
+                logger.warning(f"Hugging Face error {r.status_code}: {r.text[:200]}")
+                return None
+        
+        # OpenRouter: requiere API key
+        elif LLM_PROVIDER == 'openrouter' and OPENROUTER_API_KEY:
             headers = {
                 "Authorization": f"Bearer {OPENROUTER_API_KEY}",
                 "Content-Type": "application/json",
@@ -342,15 +517,16 @@ def _llm_generate(prompt: str, system_prompt: str = '') -> Optional[str]:
                 ],
                 "temperature": 0.7
             }
-            r = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=body, timeout=30)
+            r = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=body, timeout=15)
             if r.status_code == 200:
                 data = r.json()
                 return data.get('choices', [{}])[0].get('message', {}).get('content')
             else:
                 logger.warning(f"OpenRouter error {r.status_code}: {r.text[:200]}")
                 return None
+        
+        # Ollama: local
         elif LLM_PROVIDER == 'ollama':
-            # Usar la API de chat de Ollama (más eficiente)
             messages = []
             if system_prompt:
                 messages.append({"role": "system", "content": system_prompt})
@@ -358,9 +534,15 @@ def _llm_generate(prompt: str, system_prompt: str = '') -> Optional[str]:
             payload = {
                 "model": LLM_MODEL,
                 "messages": messages,
-                "stream": False
+                "stream": False,
+                "options": {
+                    "temperature": 0.7,
+                    "num_predict": 200,  # Respuestas más largas
+                    "top_p": 0.9,
+                    "top_k": 40
+                }
             }
-            r = requests.post('http://localhost:11434/api/chat', json=payload, timeout=60)
+            r = requests.post('http://localhost:11434/api/chat', json=payload, timeout=10)
             if r.status_code == 200:
                 data = r.json()
                 return data.get('message', {}).get('content')
@@ -374,13 +556,20 @@ def llm_status():
     try:
         provider = os.environ.get('LLM_PROVIDER', LLM_PROVIDER)
         model = os.environ.get('LLM_MODEL', LLM_MODEL)
-        key_present = bool(os.environ.get('OPENROUTER_API_KEY', OPENROUTER_API_KEY))
+        key_present = False
+        if provider == 'openrouter':
+            key_present = bool(os.environ.get('OPENROUTER_API_KEY', OPENROUTER_API_KEY))
+        elif provider == 'groq':
+            key_present = bool(os.environ.get('GROQ_API_KEY', GROQ_API_KEY))
+        elif provider == 'huggingface':
+            key_present = bool(os.environ.get('HUGGINGFACE_API_KEY', HUGGINGFACE_API_KEY))
         available = _llm_available()
         return jsonify({
             'provider': provider,
             'model': model,
             'key_present': key_present,
-            'available': available
+            'available': available,
+            'note': 'Groq y Hugging Face son gratuitas. Groq es muy rápida.' if provider in ['groq', 'huggingface'] else ''
         })
     except Exception as e:
         logger.warning(f"LLM status error: {e}")
@@ -388,7 +577,7 @@ def llm_status():
 # ============================================================
 # Chatbot Inteligente (MVP)
 # ============================================================
-def _search_articles(query: str = '', date_from: Optional[str] = None, date_to: Optional[str] = None, limit: int = 20):
+def _search_articles(query: str = '', date_from: Optional[str] = None, date_to: Optional[str] = None, limit: int = 20, newspaper: Optional[str] = None):
     """Búsqueda simple en la BD con soporte de rango de fechas y texto."""
     conn = get_db_connection()
     if not conn:
@@ -397,7 +586,12 @@ def _search_articles(query: str = '', date_from: Optional[str] = None, date_to: 
         # Normalizar query básica
         raw_query = (query or '').strip().strip('"').strip("'")
         params = []
-        q = "SELECT id, title, url, summary, date, newspaper, images_data FROM articles WHERE 1=1"
+        q = "SELECT id, title, url, summary, date, newspaper, images_data, content FROM articles WHERE 1=1"
+        
+        # Filtrar por periódico si se especifica
+        if newspaper:
+            q += " AND newspaper = ?"
+            params.append(newspaper)
         # Registrar función para normalizar (lower + quitar tildes)
         import unicodedata
         def normalize_text(s: Optional[str]):
@@ -408,9 +602,44 @@ def _search_articles(query: str = '', date_from: Optional[str] = None, date_to: 
             return s
         conn.create_function('normalize_text', 1, normalize_text)
         if raw_query:
-            q += " AND (normalize_text(title) LIKE normalize_text(?) OR normalize_text(content) LIKE normalize_text(?) OR normalize_text(summary) LIKE normalize_text(?) OR normalize_text(newspaper) LIKE normalize_text(?))"
-            like = f"%{raw_query}%"
-            params.extend([like, like, like, like])
+            # Dividir la query en palabras para búsqueda más precisa
+            query_words = [w.strip() for w in raw_query.strip().split() if w.strip() and len(w.strip()) > 2]
+            # Filtrar palabras de parada
+            stop_words = set(['de','la','el','los','las','y','o','u','en','del','al','para','por','con','un','una','que','se','su','sus','a','es','son','estan','están','fue','fueron','sobre','articulos','artículos','noticias','noticia'])
+            query_words = [w for w in query_words if normalize_text(w) not in stop_words]
+            
+            if not query_words:
+                # Si después de filtrar no quedan palabras, usar la query original
+                query_words = [raw_query.strip()]
+            
+            if len(query_words) > 1:
+                # Búsqueda con múltiples palabras: TODAS deben estar presentes (AND)
+                # Esto asegura relevancia - si buscas "huelga docente", ambos términos deben estar
+                search_conditions = []
+                search_params = []
+                for word in query_words:
+                    word_like = f"%{word}%"
+                    # Cada palabra debe estar en al menos uno de los campos
+                    if newspaper:
+                        search_conditions.append("(normalize_text(title) LIKE normalize_text(?) OR normalize_text(content) LIKE normalize_text(?) OR normalize_text(summary) LIKE normalize_text(?))")
+                        search_params.extend([word_like, word_like, word_like])
+                    else:
+                        search_conditions.append("(normalize_text(title) LIKE normalize_text(?) OR normalize_text(content) LIKE normalize_text(?) OR normalize_text(summary) LIKE normalize_text(?) OR normalize_text(newspaper) LIKE normalize_text(?))")
+                        search_params.extend([word_like, word_like, word_like, word_like])
+                if search_conditions:
+                    # AND entre palabras para mayor relevancia
+                    q += " AND (" + " AND ".join(search_conditions) + ")"
+                    params.extend(search_params)
+            else:
+                # Búsqueda con una sola palabra: buscar en todos los campos
+                like = f"%{query_words[0]}%"
+                if newspaper:
+                    q += " AND (normalize_text(title) LIKE normalize_text(?) OR normalize_text(content) LIKE normalize_text(?) OR normalize_text(summary) LIKE normalize_text(?))"
+                    params.extend([like, like, like])
+                else:
+                    # Buscar en todos los campos incluyendo newspaper
+                    q += " AND (normalize_text(title) LIKE normalize_text(?) OR normalize_text(content) LIKE normalize_text(?) OR normalize_text(summary) LIKE normalize_text(?) OR normalize_text(newspaper) LIKE normalize_text(?))"
+                    params.extend([like, like, like, like])
         # Normalizador de fechas (misma función usada en get_articles)
         def sqlite_parse_date(date_str):
             if not date_str:
@@ -436,8 +665,9 @@ def _search_articles(query: str = '', date_from: Optional[str] = None, date_to: 
         if date_to:
             q += " AND (parse_date(date) <= ? OR date <= ?)"
             params.extend([date_to, date_to + 'T23:59:59'])
+        # Optimizar: usar índice si existe, ordenar por fecha más reciente
         q += " ORDER BY scraped_at DESC LIMIT ?"
-        params.append(limit)
+        params.append(min(limit, 50))  # Limitar a máximo 50 para evitar timeouts
         cur = conn.cursor()
         cur.execute(q, params)
         rows = cur.fetchall()
@@ -457,34 +687,61 @@ def _search_articles(query: str = '', date_from: Optional[str] = None, date_to: 
                 'newspaper': r[5],
                 'image': images[0]['url'] if images else None
             })
-        # Si no hubo resultados y hay query: aplicar scoring por tokens (búsqueda semántica ligera)
-        if not articles and raw_query:
+        # Si no hubo resultados o hay pocos, aplicar scoring por tokens (búsqueda semántica mejorada)
+        # Siempre intentar búsqueda semántica si hay query para encontrar más resultados
+        if raw_query and len(articles) < limit:
             try:
-                stop = set(['de','la','el','los','las','y','o','u','en','del','al','para','por','con','un','una','que','se','su','sus','a'])
+                stop = set(['de','la','el','los','las','y','o','u','en','del','al','para','por','con','un','una','que','se','su','sus','a','es','son','estan','están','fue','fueron'])
                 tokens = [t for t in normalize_text(raw_query).split() if len(t) > 2 and t not in stop]
                 if tokens:
                     where = ""
                     extra_params = []
+                    if newspaper:
+                        where += " AND newspaper = ?"
+                        extra_params.append(newspaper)
                     if date_from:
                         where += " AND (parse_date(date) >= ? OR date >= ?)"
                         extra_params.extend([date_from, date_from])
                     if date_to:
                         where += " AND (parse_date(date) <= ? OR date <= ?)"
                         extra_params.extend([date_to, date_to + 'T23:59:59'])
-                    # Traer últimos 200 artículos para score
+                    # Traer más artículos para score (aumentado para mejor cobertura)
+                    pool_limit = 200 if not newspaper else 150
                     cur.execute(f"""
                         SELECT id, title, url, summary, date, newspaper, images_data, 
-                               LOWER(title||' '||summary||' '||COALESCE('', '')) as fulltext
+                               LOWER(COALESCE(title,'')||' '||COALESCE(summary,'')||' '||COALESCE(content,'')) as fulltext
                         FROM articles
                         WHERE 1=1 {where}
-                        ORDER BY scraped_at DESC LIMIT 200
-                    """, extra_params)
+                        ORDER BY scraped_at DESC LIMIT ?
+                    """, extra_params + [pool_limit])
                     pool = cur.fetchall()
                     scored = []
+                    existing_ids = {a['id'] for a in articles}  # Evitar duplicados
                     for row in pool:
+                        if row[0] in existing_ids:
+                            continue
                         ft = normalize_text(row[7] or '')
-                        score = sum(1 for t in tokens if t in ft)
-                        if score > 0:
+                        # Mejor scoring: contar coincidencias y dar más peso a títulos
+                        title_norm = normalize_text(row[1] or '')
+                        summary_norm = normalize_text(row[3] or '')
+                        score = 0
+                        tokens_found = 0
+                        for t in tokens:
+                            found = False
+                            if t in ft:
+                                score += 1
+                                found = True
+                            if t in title_norm:
+                                score += 2  # Más peso a títulos
+                                found = True
+                            if t in summary_norm:
+                                score += 1.5  # Peso medio a resúmenes
+                                found = True
+                            if found:
+                                tokens_found += 1
+                        # Requerir que al menos la mitad de los tokens estén presentes para relevancia
+                        min_tokens_required = max(1, len(tokens) // 2) if len(tokens) > 1 else 1
+                        if score > 0 and tokens_found >= min_tokens_required:
                             images = []
                             try:
                                 images = json.loads(row[6]) if row[6] else []
@@ -500,7 +757,10 @@ def _search_articles(query: str = '', date_from: Optional[str] = None, date_to: 
                                 'image': images[0]['url'] if images else None
                             }))
                     scored.sort(key=lambda x: x[0], reverse=True)
-                    articles = [a for _,a in scored[:limit]]
+                    # Agregar los mejores resultados semánticos a los existentes
+                    # Solo agregar si tienen un score mínimo razonable (al menos 2 puntos)
+                    semantic_articles = [a for score, a in scored if score >= 2][:limit - len(articles)]
+                    articles.extend(semantic_articles)
             except Exception as e:
                 logger.warning(f"Semantic-like search error: {e}")
         return articles
@@ -568,13 +828,30 @@ def chat_endpoint():
         pass
 
     if not message:
-        # Intento de saludo cálido con LLM (si está disponible)
-        if _llm_available():
-            text = _llm_generate("Responde como asistente amable en una frase breve.", 
-                                 "Eres un asistente del portal de noticias. Saluda y ofrece ayuda.")
-            if text:
-                return jsonify({'reply': text})
-        return jsonify({'reply': '¡Hola! ¿En qué te ayudo? Puedo buscar o resumir noticias, filtrar por fechas o mostrar tu plan.'})
+        # Saludo mejorado con estadísticas en tiempo real
+        kb_info = ""
+        live_stats = {}
+        try:
+            conn = get_db_connection()
+            cur = conn.cursor()
+            cur.execute("SELECT COUNT(*) FROM articles")
+            live_stats['total_articles'] = cur.fetchone()[0]
+            cur.execute("SELECT COUNT(DISTINCT newspaper) FROM articles")
+            live_stats['total_newspapers'] = cur.fetchone()[0]
+            conn.close()
+        except Exception:
+            pass
+        
+        if SITE_KB:
+            kb_about = SITE_KB.get('about', '')
+            if kb_about:
+                kb_info = f" {kb_about[:100]}"
+        
+        stats_text = ""
+        if live_stats:
+            stats_text = f"\n\n📊 Estado actual: {live_stats.get('total_articles',0):,} artículos de {live_stats.get('total_newspapers',0)} periódicos"
+        
+        return jsonify({'reply': f'¡Hola! 👋 ¿En qué te ayudo?{kb_info}\n\nPuedo ayudarte a:\n• 🔍 Buscar noticias y artículos\n• 📰 Hacer resúmenes de temas\n• 📅 Filtrar por fechas\n• 📊 Mostrar estadísticas\n• 💳 Consultar tu plan\n• ❓ Responder cualquier pregunta sobre el portal{stats_text}\n\n¿Qué te gustaría hacer?'})
 
     msg_lower = message.lower()
     reply = ''
@@ -622,6 +899,85 @@ def chat_endpoint():
                 return jsonify({'reply': "Ya hay un scraping en ejecución."})
         else:
             return jsonify({'reply': "La actualización automática desde chat está disponible para Enterprise."})
+    # Intent: estadísticas detalladas
+    stats_keywords = ['estadística', 'estadisticas', 'estadística', 'métrica', 'metricas', 'cuántos artículos', 'cuantos articulos', 'cuántas noticias', 'cuantas noticias', 'cuántos periódicos', 'cuantos periodicos', 'datos', 'números', 'numeros', 'conteo', 'total']
+    if any(k in msg_lower for k in stats_keywords):
+        try:
+            conn = get_db_connection()
+            cur = conn.cursor()
+            
+            # Estadísticas generales
+            cur.execute("SELECT COUNT(*) FROM articles")
+            total_articles = cur.fetchone()[0]
+            cur.execute("SELECT COUNT(DISTINCT newspaper) FROM articles")
+            total_newspapers = cur.fetchone()[0]
+            cur.execute("SELECT COUNT(*) FROM images")
+            total_images = cur.fetchone()[0]
+            cur.execute("SELECT COUNT(DISTINCT category) FROM articles WHERE category IS NOT NULL AND category != ''")
+            total_categories = cur.fetchone()[0]
+            
+            # Estadísticas por periódico (top 5)
+            cur.execute("""
+                SELECT newspaper, COUNT(*) as count 
+                FROM articles 
+                GROUP BY newspaper 
+                ORDER BY count DESC 
+                LIMIT 5
+            """)
+            top_newspapers = cur.fetchall()
+            
+            # Estadísticas por categoría (top 5)
+            cur.execute("""
+                SELECT category, COUNT(*) as count 
+                FROM articles 
+                WHERE category IS NOT NULL AND category != ''
+                GROUP BY category 
+                ORDER BY count DESC 
+                LIMIT 5
+            """)
+            top_categories = cur.fetchall()
+            
+            # Artículos recientes (últimas 24h)
+            from datetime import timedelta
+            yesterday = (datetime.now() - timedelta(days=1)).isoformat()
+            cur.execute("SELECT COUNT(*) FROM articles WHERE scraped_at >= ?", (yesterday,))
+            recent_articles = cur.fetchone()[0]
+            
+            conn.close()
+            
+            # Construir respuesta detallada
+            reply_parts = [f"📊 **Estadísticas del Portal:**\n\n"]
+            reply_parts.append(f"📰 **Total de artículos:** {total_articles:,}\n")
+            reply_parts.append(f"📚 **Periódicos:** {total_newspapers}\n")
+            reply_parts.append(f"🖼️ **Imágenes:** {total_images:,}\n")
+            reply_parts.append(f"📂 **Categorías:** {total_categories}\n")
+            reply_parts.append(f"🕐 **Últimas 24h:** {recent_articles} artículos nuevos\n")
+            
+            if top_newspapers:
+                reply_parts.append(f"\n📰 **Top 5 Periódicos:**\n")
+                for i, (newspaper, count) in enumerate(top_newspapers, 1):
+                    reply_parts.append(f"{i}. {newspaper}: {count:,} artículos\n")
+            
+            if top_categories:
+                reply_parts.append(f"\n📂 **Top 5 Categorías:**\n")
+                for i, (category, count) in enumerate(top_categories, 1):
+                    reply_parts.append(f"{i}. {category}: {count:,} artículos\n")
+            
+            reply_parts.append(f"\n💡 Puedes ver estadísticas más detalladas en la sección 'Análisis' del menú principal.")
+            reply = "".join(reply_parts)
+            return jsonify({'reply': reply, 'data': {
+                'total_articles': total_articles,
+                'total_newspapers': total_newspapers,
+                'total_images': total_images,
+                'total_categories': total_categories,
+                'recent_articles': recent_articles,
+                'top_newspapers': [{'newspaper': n, 'count': c} for n, c in top_newspapers],
+                'top_categories': [{'category': c, 'count': cnt} for c, cnt in top_categories]
+            }})
+        except Exception as e:
+            logger.warning(f"Error leyendo estadísticas: {e}")
+            return jsonify({'reply': "📊 No pude obtener las estadísticas en este momento. Intenta más tarde o ve a la sección 'Análisis' para ver estadísticas detalladas."})
+    
     # Intent: ayuda del sitio / qué hace / cómo usar
     help_keywords = ['de qué trata', 'de que trata', 'que puedo hacer', 'cómo usar', 'como usar', 'ayuda', 'que hace esta página', 'que hace esta pagina', 'cómo funciona', 'como funciona', 'donde estamos', 'secciones', 'cómo exporto', 'como exporto', 'planes', 'suscripción', 'suscripcion']
     if any(k in msg_lower for k in help_keywords):
@@ -654,12 +1010,16 @@ def chat_endpoint():
         if live_stats:
             context_lines.append(f"Métricas actuales: artículos={live_stats.get('total_articles',0)}, periódicos={live_stats.get('total_newspapers',0)}, imágenes={live_stats.get('total_images',0)}.")
         context = "\n".join(context_lines[:1000])
-        if _llm_available():
-            prompt = f"Usuario: {message}\nContexto del sitio:\n{context}\nResponde en español, claro y breve (2-4 líneas), guiando al usuario sobre qué puede hacer aquí."
-            text = _llm_generate(prompt, "Eres un asistente del portal. Responde solo con el contexto dado; no inventes funciones.")
-            if text:
-                return jsonify({'reply': text, 'data': {'live_stats': live_stats}})
-        reply = "Este portal permite buscar y resumir noticias, filtrar por fechas, ver estadísticas y exportar (según plan). ¿Qué necesitas hacer ahora?"
+        # Respuesta rápida para ayuda sin LLM (evitar demoras)
+        reply_parts = []
+        if kb_about:
+            reply_parts.append(f"Este portal: {kb_about}")
+        if kb_sections:
+            reply_parts.append(f"\nSecciones disponibles: {', '.join(list(kb_sections.keys())[:8])}")
+        if live_stats:
+            reply_parts.append(f"\n📊 Estado actual: {live_stats.get('total_articles',0)} artículos de {live_stats.get('total_newspapers',0)} periódicos")
+        reply_parts.append("\n💡 Puedes buscar noticias, ver estadísticas, exportar datos y más. ¿Qué te gustaría hacer?")
+        reply = "".join(reply_parts)
         return jsonify({'reply': reply, 'data': {'live_stats': live_stats}})
 
     def _guess_source_url(q: str) -> Optional[tuple]:
@@ -695,15 +1055,89 @@ def chat_endpoint():
         reply = f"Plan: {limits.get('plan_name','Desconocido')}. Artículos hoy: {limits['current_articles']}/{limits['max_articles']} • Imágenes por scraping: máx {limits['max_images']}."
         return jsonify({'reply': reply, 'plan': plan_name, 'limits': limits})
 
-    # Intent: buscar
-    # Detectar intención de búsqueda flexible (si menciona medios/temas, años o palabras clave de noticias)
-    if any(k in msg_lower for k in ['buscar', 'encuentra', 'muestra', 'partidos', 'selección', 'seleccion', 'noticias', 'diario', 'periódico', 'periodico']) or any(ch.isdigit() for ch in msg_lower):
-        # Quitar palabra 'buscar' del query
+    # Intent: buscar - Detección mejorada de búsquedas
+    # Detectar intención de búsqueda flexible (menciona medios, temas, años, o palabras clave)
+    search_keywords = [
+        'buscar', 'encuentra', 'muestra', 'dame', 'quiero', 'necesito', 'trae', 'obtén', 'obten',
+        'partidos', 'selección', 'seleccion', 'noticias', 'diario', 'periódico', 'periodico',
+        'artículos', 'articulos', 'artículo', 'articulo', 'noticia', 'noticias',
+        'política', 'politica', 'economía', 'economia', 'deportes', 'tecnología', 'tecnologia',
+        'comercio', 'república', 'republica', 'rpp', 'peru21', 'andina', 'americatv'
+    ]
+    
+    # Detectar si es una búsqueda: palabras clave explícitas, números (años), o mensaje corto que parece un tema
+    has_explicit_search = any(k in msg_lower for k in search_keywords) or any(ch.isdigit() for ch in msg_lower)
+    
+    # Si no hay palabras clave explícitas, pero el mensaje es corto (1-4 palabras) y no es una pregunta de ayuda,
+    # probablemente es una búsqueda de tema
+    is_likely_topic_search = False
+    if not has_explicit_search:
+        words = msg_lower.strip().split()
+        # Si tiene entre 1 y 4 palabras y no contiene palabras de ayuda/estadísticas, probablemente es una búsqueda
+        help_or_stats_words = ['ayuda', 'estadística', 'estadisticas', 'métrica', 'metricas', 'cuántos', 'cuantos', 
+                              'cómo', 'como', 'qué', 'que', 'plan', 'suscripción', 'suscripcion', 'exportar', 'export']
+        if 1 <= len(words) <= 4 and not any(hw in msg_lower for hw in help_or_stats_words):
+            is_likely_topic_search = True
+    
+    has_search_intent = has_explicit_search or is_likely_topic_search
+    
+    if has_search_intent:
+        # Extraer query de forma más inteligente
         query = message
-        for k in ['buscar', 'encuentra', 'muestra']:
-            query = query.replace(k, '')
-        query = query.strip()
-        articles = _search_articles(query=query, date_from=date_from, date_to=date_to, limit=limit)
+        msg_lower = message.lower()
+        
+        # Detectar periódicos específicos primero (antes de limpiar)
+        newspaper_patterns = {
+            'el comercio': 'El Comercio',
+            'comercio': 'El Comercio',
+            'la república': 'La República',
+            'república': 'La República',
+            'republica': 'La República',
+            'rpp': 'RPP',
+            'peru21': 'Peru21',
+            'perú21': 'Peru21',
+            'andina': 'Andina',
+            'america tv': 'AmericaTV',
+            'americatv': 'AmericaTV',
+            'ojo': 'Ojo',
+            'trome': 'Trome',
+            'willax': 'Willax',
+            'radio onda azul': 'Radio Onda Azul'
+        }
+        
+        detected_newspaper = None
+        for pattern, newspaper_name in newspaper_patterns.items():
+            if pattern in msg_lower:
+                detected_newspaper = newspaper_name
+                # Remover el nombre del periódico del query para buscar también en contenido
+                query = query.replace(pattern, '').replace(newspaper_name, '').strip()
+                break
+        
+        # Remover comandos comunes pero mantener sustantivos importantes
+        command_words = ['buscar', 'encuentra', 'muestra', 'dame', 'quiero', 'necesito', 'trae', 'obtén', 'obten', 'artículos', 'articulos', 'artículo', 'articulo', 'noticias', 'noticia']
+        words = query.split()
+        # Filtrar palabras de comando pero mantener sustantivos importantes
+        filtered_words = [w for w in words if w.lower() not in command_words or len(w) > 4]
+        query = ' '.join(filtered_words).strip()
+        
+        # Si después de limpiar queda muy corto, usar el mensaje original
+        if len(query) < 2:
+            query = message
+        
+        # Limitar el número de resultados para evitar timeouts
+        search_limit = min(limit or 10, 15)  # Máximo 15 artículos para el chatbot
+        
+        # Si detectamos un periódico, buscar específicamente en ese periódico
+        if detected_newspaper:
+            # Si solo mencionó el periódico sin tema adicional, traer los más recientes
+            if not query or len(query.strip()) < 3:
+                articles = _search_articles(query='', date_from=date_from, date_to=date_to, limit=search_limit, newspaper=detected_newspaper)
+            else:
+                # Buscar en el periódico específico con el tema
+                articles = _search_articles(query=query, date_from=date_from, date_to=date_to, limit=search_limit, newspaper=detected_newspaper)
+        else:
+            # Si no hay periódico específico, buscar por tema en todos los periódicos
+            articles = _search_articles(query=query, date_from=date_from, date_to=date_to, limit=search_limit)
 
         # Si no hay resultados, intentar scrappear en caliente si detectamos el medio
         if not articles:
@@ -727,21 +1161,19 @@ def chat_endpoint():
 
         citations = [{'title': a['title'], 'url': a['url']} for a in articles]
         if articles:
-            # Redactar con mejor tono si hay LLM local
-            if _llm_available():
-                context = "\\n".join([f"- {a['title']}" for a in articles[:5]])
-                prompt = f"Usuario: {message}\\nArtículos: \\n{context}\\nRedacta una respuesta amable, breve (2-3 líneas) y añade una llamada a la acción."
-                text = _llm_generate(prompt, "Eres un asistente del portal. Devuelve texto en español, natural y útil.")
-                if text:
-                    reply = text
-                else:
-                    bullets = _summarize_articles(articles, max_points=min(5, len(articles)))
-                    header = f"Encontré {len(articles)} artículos relevantes."
-                    reply = header + "\\n" + "\\n".join(bullets)
+            # Respuesta amigable y dinámica con formato mejorado
+            count = len(articles)
+            if count == 1:
+                header = f"✅ ¡Perfecto! Encontré 1 artículo relevante:"
             else:
-                bullets = _summarize_articles(articles, max_points=min(5, len(articles)))
-                header = f"Encontré {len(articles)} artículos relevantes."
-                reply = header + "\\n" + "\\n".join(bullets)
+                header = f"✅ ¡Genial! Encontré {count} artículos relevantes:"
+            
+            bullets = _summarize_articles(articles, max_points=min(5, count))
+            reply = f"{header}\n\n" + "\n".join(bullets)
+            
+            # Si hay más artículos, mencionarlo
+            if count > 5:
+                reply += f"\n\n💡 Hay {count} artículos en total. Puedes ver más usando los filtros en la página de Artículos o pidiéndome un resumen específico."
         else:
             detail = ''
             if date_from or date_to:
@@ -778,9 +1210,9 @@ def chat_endpoint():
                         conn.close()
                     except:
                         pass
-            reply = f"No encontré artículos para esa búsqueda{detail}.{db_hint} Prueba afinar el término, elegir otro rango o usar el filtro del listado."
+            reply = f"😔 No encontré artículos para esa búsqueda{detail}.{db_hint}\n\n💡 Sugerencias:\n- Prueba con términos más generales\n- Verifica el rango de fechas\n- Usa los filtros en la página de Artículos para búsquedas más precisas"
             if recent_citations:
-                reply += " Te dejo los últimos 5 de esa fuente:"
+                reply += "\n\n📰 Te dejo los últimos artículos de esa fuente que tengo en la base:"
                 citations.extend(recent_citations)
         data = {'articles': articles, 'date_from': date_from, 'date_to': date_to}
         return jsonify({'reply': reply, 'data': data, 'citations': citations})
@@ -818,15 +1250,12 @@ def chat_endpoint():
                 except: pass
         bullets = _summarize_articles(articles, max_points=5)
         if bullets:
-            if _llm_available():
-                ctx = "\n".join([f"- {a.get('title')}" for a in articles[:5] if a.get('title')])
-                prompt = f"Genera un resumen breve (3-5 bullets) usando solo estos artículos:\n{ctx}"
-                text = _llm_generate(prompt, "Responde en español, claro y conciso, sin inventar datos.")
-                reply = text or "\n".join(bullets)
-            else:
-                reply = "\n".join(bullets)
+            # Resumen directo sin LLM (más rápido) con formato mejorado
+            reply = f"📰 Resumen de {len(articles)} noticias:\n\n" + "\n".join(bullets)
+            if len(articles) > 5:
+                reply += f"\n\n💡 Hay {len(articles)} artículos en total. Puedes ver más detalles en la página de Artículos."
         else:
-            reply = "No hay suficiente contenido para resumir."
+            reply = "😔 No hay suficiente contenido para resumir. Intenta con otro tema o rango de fechas."
         citations = [{'title': a.get('title'), 'url': a.get('url')} for a in articles[:5] if a.get('title') and a.get('url')]
         data = {'articles_used': len(articles)}
         return jsonify({'reply': reply, 'data': data, 'citations': citations})
@@ -847,11 +1276,102 @@ def chat_endpoint():
         reply = "He habilitado la actualización automática desde el panel. Usa ‘Actualizar automático’. Si quieres, dime la URL y frecuencia y lo dejo configurado."
         return jsonify({'reply': reply})
 
-    # Small-talk/otro: usar LLM si está disponible
-    if _llm_available():
-        text = _llm_generate(f"Usuario: {message}", 
-                             "Eres un asistente del portal de noticias. Responde de forma amable y breve; si el usuario pide tareas relacionadas con noticias, invítalo a usar frases como 'buscar ...' o 'resumen ...'.")
-        if text:
+    # Small-talk/otro: intentar LLM primero, luego fallback inteligente
+    # Siempre intentar LLM (puede funcionar sin key con algunas APIs)
+    llm_worked = False
+    if True:  # Siempre intentar LLM primero
+        # Construir contexto completo con KB del sitio
+        kb_context = ""
+        if SITE_KB:
+            kb_about = SITE_KB.get('about', '')
+            kb_sections = SITE_KB.get('sections', {})
+            kb_howto = SITE_KB.get('howto', {})
+            
+            kb_context = f"\n\nInformación sobre este portal:\n"
+            if kb_about:
+                kb_context += f"Descripción: {kb_about}\n"
+            if kb_sections:
+                kb_context += "\nSecciones disponibles:\n"
+                for s, desc in list(kb_sections.items())[:10]:  # Limitar a 10 secciones
+                    kb_context += f"- {s}: {desc}\n"
+            if kb_howto:
+                kb_context += "\nCómo hacer cosas:\n"
+                for key, desc in list(kb_howto.items())[:5]:  # Limitar a 5 instrucciones
+                    kb_context += f"- {desc}\n"
+        
+        # Obtener estadísticas actuales para contexto
+        try:
+            conn = get_db_connection()
+            cur = conn.cursor()
+            cur.execute("SELECT COUNT(*) FROM articles")
+            total_articles = cur.fetchone()[0]
+            cur.execute("SELECT COUNT(DISTINCT newspaper) FROM articles")
+            total_newspapers = cur.fetchone()[0]
+            conn.close()
+            kb_context += f"\nEstado actual: {total_articles} artículos de {total_newspapers} periódicos en la base de datos.\n"
+        except:
+            pass
+        
+        # System prompt mejorado y más específico para responder cualquier pregunta sobre el portal
+        system_prompt = """Eres un asistente amable y profesional del portal de noticias Web Scraper. 
+Tu objetivo es ayudar a los usuarios de forma clara, amigable y útil respondiendo CUALQUIER pregunta sobre el portal.
+
+IMPORTANTE:
+- Responde SIEMPRE en español de forma natural y conversacional
+- Sé amigable, cálido y profesional, como si fueras un compañero de trabajo
+- Usa TODA la información del portal que te proporciono en el contexto para responder
+- Puedes responder sobre:
+  * Funcionalidades y secciones del portal
+  * Cómo usar cada herramienta (búsqueda, filtros, exportación, scraping, etc.)
+  * Planes y suscripciones (Freemium, Premium, Enterprise)
+  * Límites y restricciones de cada plan
+  * Estadísticas y métricas del portal
+  * Cómo buscar artículos, noticias, imágenes
+  * Cómo filtrar por fechas, periódicos, categorías
+  * Cómo exportar datos
+  * Cómo usar el scraping automático
+  * Cualquier otra pregunta sobre el portal
+- Si el usuario pide artículos o noticias específicas, puedes:
+  * Sugerirle usar comandos como "buscar [tema]", "resumen [tema]", "artículos de [periódico]"
+  * O directamente buscar y mostrarle resultados si es claro lo que busca
+- Mantén las respuestas informativas pero concisas (2-5 líneas normalmente, más si es necesario)
+- Si no sabes algo específico, admítelo amablemente y ofrece ayuda alternativa
+- Usa emojis de forma moderada para hacer la conversación más amigable (👋 📰 ✅ 💡 🔍 📊)"""
+        
+        user_prompt = f"""Usuario pregunta: "{message}"
+
+Contexto completo del portal:
+{kb_context}
+
+Responde de forma amigable, natural y útil. Usa toda la información del contexto para dar una respuesta completa y precisa. Si el usuario pregunta sobre cómo hacer algo, explica paso a paso. Si pregunta sobre funcionalidades, describe claramente qué puede hacer y cómo. Sé conversacional, amigable y siempre útil."""
+        
+        # Usar threading con timeout para evitar demoras excesivas
+        import threading
+        result = [None]
+        exception_occurred = [False]
+        
+        def call_llm():
+            try:
+                result[0] = _llm_generate(user_prompt, system_prompt)
+            except Exception as e:
+                exception_occurred[0] = True
+                logger.warning(f"LLM error en chat: {e}")
+        
+        thread = threading.Thread(target=call_llm)
+        thread.daemon = True
+        thread.start()
+        thread.join(timeout=8)  # Máximo 8 segundos para LLM (APIs gratuitas son rápidas)
+        
+        if thread.is_alive():
+            # Si aún está corriendo, usar fallback inteligente
+            logger.debug("LLM timeout, usando respuesta inteligente")
+            text = None
+        else:
+            text = result[0]
+        
+        # Si el LLM funcionó, usar su respuesta
+        if text and not exception_occurred[0] and text.strip():
+            llm_worked = True
             # Registrar uso del chat
             if role != 'admin':
                 try:
@@ -859,14 +1379,126 @@ def chat_endpoint():
                 except Exception:
                     pass
             return jsonify({'reply': text})
-    # Fallback sin LLM
-    reply = "Puedo: buscar artículos (por texto/fechas), resumir, mostrar tu plan/límites y (según tu plan) exportar o programar actualizaciones. Dime qué necesitas."
+    
+    # Fallback inteligente: respuesta contextual basada en el mensaje (siempre se ejecuta si LLM falla)
+    kb_context_for_fallback = ""
+    if SITE_KB:
+        kb_about = SITE_KB.get('about', '')
+        kb_sections = SITE_KB.get('sections', {})
+        if kb_about:
+            kb_context_for_fallback += f"Descripción: {kb_about}\n"
+        if kb_sections:
+            for s, desc in list(kb_sections.items())[:10]:
+                kb_context_for_fallback += f"- {s}: {desc}\n"
+    
+    reply = _generate_intelligent_fallback(message, kb_context_for_fallback, SITE_KB)
+    
+    # Registrar uso del chat
     if role != 'admin':
         try:
             auth_system.subscription_system.update_chat_usage(user_id, 1)
         except Exception:
             pass
     return jsonify({'reply': reply, 'plan': plan_name})
+
+def _generate_intelligent_fallback(message: str, kb_context: str, site_kb: dict) -> str:
+    """Generar respuesta inteligente sin LLM basada en el contexto."""
+    msg_lower = message.lower()
+    
+    # Detectar preguntas sobre secciones específicas
+    if 'imagen' in msg_lower or 'imágenes' in msg_lower:
+        if site_kb and 'sections' in site_kb:
+            img_desc = site_kb['sections'].get('Imágenes', '')
+            if img_desc:
+                return f"📸 La sección de Imágenes te permite ver todas las imágenes extraídas de los artículos. {img_desc} Puedes filtrarlas por periódico, fecha o categoría desde el menú principal."
+        return "📸 La sección de Imágenes muestra todas las imágenes extraídas de los artículos de noticias. Puedes verlas organizadas por periódico, fecha o categoría. Accede desde el menú 'Imágenes' en la parte superior."
+    
+    if 'artículo' in msg_lower or 'noticia' in msg_lower or 'noticias' in msg_lower:
+        if site_kb and 'sections' in site_kb:
+            art_desc = site_kb['sections'].get('Artículos', '')
+            if art_desc:
+                return f"📰 La sección de Artículos contiene todas las noticias extraídas. {art_desc} Puedes buscar, filtrar por fecha, periódico o categoría, y exportar los datos."
+        return "📰 La sección de Artículos contiene todas las noticias extraídas de diferentes periódicos. Puedes buscar, filtrar por fecha, periódico o categoría, y exportar los datos en Excel o CSV."
+    
+    if 'análisis' in msg_lower or 'sentimiento' in msg_lower or 'analisis' in msg_lower:
+        if site_kb and 'sections' in site_kb:
+            anal_desc = site_kb['sections'].get('Análisis', '')
+            if anal_desc:
+                return f"📊 La sección de Análisis te permite analizar el sentimiento de las noticias. {anal_desc}"
+        return "📊 La sección de Análisis te permite analizar el sentimiento de las noticias, ver tendencias, comparar medios y más. Disponible según tu plan de suscripción. Accede desde el menú 'Análisis'."
+    
+    if 'suscripci' in msg_lower or 'plan' in msg_lower:
+        # Obtener información del plan del usuario
+        limits = auth_system.check_usage_limits(user_id, 0, 0)
+        plan_name = limits.get('plan_name', 'Desconocido')
+        current_articles = limits.get('current_articles', 0)
+        max_articles = limits.get('max_articles', 0)
+        max_images = limits.get('max_images', 0)
+        
+        reply = f"💳 **Tu Plan Actual: {plan_name}**\n\n"
+        reply += f"📰 Artículos hoy: {current_articles}/{max_articles}\n"
+        reply += f"🖼️ Imágenes por scraping: máx {max_images}\n\n"
+        
+        if 'freemium' in plan_name.lower():
+            reply += "💡 **Funcionalidades disponibles:**\n"
+            reply += "• Búsqueda y filtrado de artículos\n"
+            reply += "• Visualización de noticias\n"
+            reply += "• Estadísticas básicas\n\n"
+            reply += "🚀 **Mejora a Premium/Enterprise** para exportar datos, auto-update y más funcionalidades."
+        elif 'premium' in plan_name.lower():
+            reply += "✨ **Funcionalidades Premium:**\n"
+            reply += "• Todo lo de Freemium\n"
+            reply += "• Exportación a Excel/CSV\n"
+            reply += "• Actualización automática\n"
+            reply += "• Análisis avanzado de sentimientos\n"
+        elif 'enterprise' in plan_name.lower():
+            reply += "🏆 **Funcionalidades Enterprise:**\n"
+            reply += "• Todo lo de Premium\n"
+            reply += "• Sin límites de uso\n"
+            reply += "• Acceso completo a todas las funciones\n"
+        
+        reply += "\n💡 Puedes ver más detalles en el menú 'Suscripciones'."
+        return reply
+    
+    if 'scraping' in msg_lower or 'extraer' in msg_lower or 'scrape' in msg_lower:
+        return "🔧 El scraping permite extraer noticias de diferentes periódicos automáticamente. Como administrador puedes configurar y ejecutar scraping desde el panel de control. Los artículos extraídos se guardan en la base de datos."
+    
+    if 'redes' in msg_lower or 'social' in msg_lower or 'comentario' in msg_lower or 'twitter' in msg_lower or 'facebook' in msg_lower:
+        if site_kb and 'sections' in site_kb:
+            social_desc = site_kb['sections'].get('Redes Sociales', '')
+            if social_desc:
+                return f"💬 **Redes Sociales:**\n\n{social_desc}\n\n🔧 **Cómo usar:**\n1. Ve a la sección 'Redes Sociales' en el menú\n2. Elige la plataforma (Twitter/X, Facebook, Reddit, YouTube)\n3. Configura tu búsqueda (hashtag o palabra clave)\n4. Define cantidad de posts e idioma\n5. Ejecuta y revisa los resultados\n\n⚠️ **Nota:** Este módulo es solo con fines educativos y respeta los límites de las plataformas."
+        return "💬 La sección de Redes Sociales te permite analizar publicaciones de diferentes plataformas (Twitter/X, Facebook, Reddit, YouTube). Puedes buscar por hashtag o palabra clave, ver métricas, categorías y sentimientos. Accede desde el menú 'Redes Sociales'."
+    
+    # Respuesta general amigable con contexto mejorado
+    kb_info = ""
+    live_stats = {}
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT COUNT(*) FROM articles")
+        live_stats['total_articles'] = cur.fetchone()[0]
+        cur.execute("SELECT COUNT(DISTINCT newspaper) FROM articles")
+        live_stats['total_newspapers'] = cur.fetchone()[0]
+        conn.close()
+    except Exception:
+        pass
+    
+    if site_kb:
+        kb_about = site_kb.get('about', '')
+        kb_sections = site_kb.get('sections', {})
+        
+        if kb_about:
+            kb_info = f"\n\n{kb_about}"
+        if kb_sections:
+            sections_list = ", ".join(list(kb_sections.keys())[:8])
+            kb_info += f"\n\n📑 Secciones disponibles: {sections_list}"
+    
+    stats_text = ""
+    if live_stats:
+        stats_text = f"\n\n📊 Estado actual: {live_stats.get('total_articles',0):,} artículos de {live_stats.get('total_newspapers',0)} periódicos"
+    
+    return f"¡Hola! 👋{kb_info}{stats_text}\n\n💡 Puedo ayudarte a:\n• 🔍 Buscar noticias y artículos\n• 📰 Hacer resúmenes\n• 📅 Filtrar por fechas\n• 📊 Mostrar estadísticas\n• 💳 Consultar tu plan\n• ❓ Responder preguntas sobre el portal\n\n¿Qué te gustaría hacer?"
 # Inicializar sistema de competitive intelligence
 ci_system = CompetitiveIntelligenceSystem()
 
@@ -2922,6 +3554,8 @@ def get_articles():
         search = request.args.get('search')
         date_from = request.args.get('dateFrom')  # Fecha de inicio (YYYY-MM-DD)
         date_to = request.args.get('dateTo')  # Fecha de fin (YYYY-MM-DD)
+
+        logger.info(f"[ARTICLES] params={dict(request.args)}")
         
         offset = (page - 1) * limit
         
@@ -2942,9 +3576,37 @@ def get_articles():
             params.append(region)
         
         if search:
-            query += " AND (title LIKE ? OR content LIKE ? OR summary LIKE ?)"
-            search_term = f"%{search}%"
-            params.extend([search_term, search_term, search_term])
+            # Registrar función de normalización de texto para búsqueda
+            import unicodedata
+            def normalize_text(s):
+                """Normalizar texto: convertir a minúsculas y quitar acentos"""
+                if not s:
+                    return ''
+                s = str(s).lower()
+                # Quitar acentos usando NFD (Normalization Form Decomposed)
+                s = ''.join(c for c in unicodedata.normalize('NFD', s) if unicodedata.category(c) != 'Mn')
+                return s
+            
+            # Registrar función de normalización en SQLite
+            conn.create_function('normalize_text', 1, normalize_text)
+            
+            # Dividir el término de búsqueda en palabras y buscar cada una
+            search_words = search.strip().split()
+            search_conditions = []
+            search_params = []
+            
+            # Para cada palabra, buscar en todos los campos
+            for word in search_words:
+                if word:  # Ignorar palabras vacías
+                    word_term = f"%{word}%"
+                    # Buscar la palabra en todos los campos relevantes
+                    search_conditions.append("(normalize_text(title) LIKE normalize_text(?) OR normalize_text(content) LIKE normalize_text(?) OR normalize_text(summary) LIKE normalize_text(?) OR normalize_text(author) LIKE normalize_text(?) OR normalize_text(newspaper) LIKE normalize_text(?))")
+                    search_params.extend([word_term, word_term, word_term, word_term, word_term])
+            
+            # Si hay condiciones de búsqueda, agregarlas (todas las palabras deben estar presentes)
+            if search_conditions:
+                query += " AND (" + " AND ".join(search_conditions) + ")"
+                params.extend(search_params)
         
         # Filtro de rango de fechas (basado en fecha de publicación)
         # Las fechas en la base de datos están principalmente en formato legible (ej: "11 Sep 2025 | 10:04 h") 
@@ -3054,9 +3716,32 @@ def get_articles():
             count_query += " AND region = ?"
             count_params.append(region)
         if search:
-            count_query += " AND (title LIKE ? OR content LIKE ? OR summary LIKE ?)"
-            search_term = f"%{search}%"
-            count_params.extend([search_term, search_term, search_term])
+            # Usar la misma normalización de texto para el conteo
+            import unicodedata
+            def normalize_text_count(s):
+                """Normalizar texto: convertir a minúsculas y quitar acentos"""
+                if not s:
+                    return ''
+                s = str(s).lower()
+                s = ''.join(c for c in unicodedata.normalize('NFD', s) if unicodedata.category(c) != 'Mn')
+                return s
+            
+            conn.create_function('normalize_text', 1, normalize_text_count)
+            
+            # Dividir el término de búsqueda en palabras (misma lógica que arriba)
+            search_words = search.strip().split()
+            count_conditions = []
+            count_search_params = []
+            
+            for word in search_words:
+                if word:
+                    word_term = f"%{word}%"
+                    count_conditions.append("(normalize_text(title) LIKE normalize_text(?) OR normalize_text(content) LIKE normalize_text(?) OR normalize_text(summary) LIKE normalize_text(?) OR normalize_text(author) LIKE normalize_text(?) OR normalize_text(newspaper) LIKE normalize_text(?))")
+                    count_search_params.extend([word_term, word_term, word_term, word_term, word_term])
+            
+            if count_conditions:
+                count_query += " AND (" + " AND ".join(count_conditions) + ")"
+                count_params.extend(count_search_params)
         # Aplicar mismo filtro de fechas al conteo (usar misma función parse_date)
         if date_from or date_to:
             from datetime import datetime
@@ -4329,14 +5014,25 @@ def advanced_search():
         conn = sqlite3.connect('news_database.db')
         cursor = conn.cursor()
         
+        # Registrar función de normalización de texto (sin acentos, case-insensitive)
+        import unicodedata
+        def normalize_text(s):
+            """Normalizar texto: convertir a minúsculas y quitar acentos"""
+            if not s:
+                return ''
+            s = s.lower()
+            s = ''.join(c for c in unicodedata.normalize('NFD', s) if unicodedata.category(c) != 'Mn')
+            return s
+        conn.create_function('normalize_text', 1, normalize_text)
+        
         # Construir consulta SQL
         where_conditions = []
         params = []
         
-        # Búsqueda de texto
-        where_conditions.append("(title LIKE ? OR content LIKE ?)")
+        # Búsqueda de texto con normalización (sin acentos, case-insensitive)
+        where_conditions.append("(normalize_text(title) LIKE normalize_text(?) OR normalize_text(content) LIKE normalize_text(?) OR normalize_text(summary) LIKE normalize_text(?) OR normalize_text(author) LIKE normalize_text(?))")
         search_term = f"%{query}%"
-        params.extend([search_term, search_term])
+        params.extend([search_term, search_term, search_term, search_term])
         
         # Filtros adicionales
         if category:
@@ -4369,8 +5065,8 @@ def advanced_search():
         # Ordenamiento
         order_clause = "published_date DESC"
         if sort_by == 'relevance':
-            # Simular relevancia basada en coincidencias en título
-            order_clause = f"CASE WHEN title LIKE ? THEN 1 ELSE 2 END, published_date DESC"
+            # Simular relevancia basada en coincidencias en título (usando normalización)
+            order_clause = f"CASE WHEN normalize_text(title) LIKE normalize_text(?) THEN 1 ELSE 2 END, published_date DESC"
             params.insert(0, f"%{query}%")
         elif sort_by == 'date':
             order_clause = "published_date DESC"
@@ -5909,10 +6605,21 @@ def add_competitor():
         # Agregar competidor
         competitor_id = ci_system.add_competitor(user_id, competitor_name, keywords, domains)
         
+        # Analizar artículos existentes automáticamente para este competidor
+        try:
+            logger.info(f"Analizando artículos existentes para nuevo competidor: {competitor_name}")
+            analysis_result = ci_system.analyze_existing_articles(user_id)
+            if analysis_result.get('success'):
+                logger.info(f"Análisis completado: {analysis_result.get('total_mentions', 0)} menciones encontradas")
+        except Exception as e:
+            logger.warning(f"Error analizando artículos después de agregar competidor: {e}")
+            # Continuar aunque falle el análisis
+        
         return jsonify({
             'success': True,
             'message': f'Competidor "{competitor_name}" agregado exitosamente',
-            'competitor_id': competitor_id
+            'competitor_id': competitor_id,
+            'analysis_completed': analysis_result.get('success', False) if 'analysis_result' in locals() else False
         })
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
@@ -6178,21 +6885,41 @@ def generate_trending_predictions():
         logger.info(f"Generating {limit} trending predictions for user {user_id}")
         
         # Importar el sistema de predicción
-        from trending_predictor_system import TrendingTopicsPredictor
-        predictor = TrendingTopicsPredictor()
+        try:
+            from trending_predictor_system import TrendingTopicsPredictor
+            predictor = TrendingTopicsPredictor()
+        except ImportError as e:
+            logger.error(f"Error importing TrendingTopicsPredictor: {e}")
+            return jsonify({'error': 'Error al importar el sistema de predicción', 'details': str(e)}), 500
+        except Exception as e:
+            logger.error(f"Error initializing predictor: {e}")
+            return jsonify({'error': 'Error al inicializar el predictor', 'details': str(e)}), 500
         
         # Generar predicciones
-        result = predictor.generate_predictions(user_id, limit)
+        try:
+            result = predictor.generate_predictions(user_id, limit)
+        except Exception as e:
+            logger.error(f"Error in generate_predictions: {e}", exc_info=True)
+            return jsonify({'error': 'Error al generar predicciones', 'details': str(e)}), 500
         
-        if result['success']:
-            logger.info(f"Generated {result['total_generated']} predictions successfully")
+        if result.get('success'):
+            logger.info(f"Generated {result.get('total_generated', 0)} predictions successfully")
             return jsonify(result)
         else:
-            return jsonify(result), 400 if 'upgrade_required' in result else 500
+            error_msg = result.get('error', 'Error desconocido')
+            status_code = 400 if result.get('upgrade_required') else 500
+            logger.warning(f"Prediction generation failed: {error_msg}")
+            # Asegurar que siempre devolvamos un formato consistente
+            error_response = {
+                'success': False,
+                'error': error_msg,
+                'upgrade_required': result.get('upgrade_required', False)
+            }
+            return jsonify(error_response), status_code
             
     except Exception as e:
-        logger.error(f"Error generating predictions: {e}")
-        return jsonify({'error': 'Error interno del servidor'}), 500
+        logger.error(f"Error generating predictions: {e}", exc_info=True)
+        return jsonify({'error': 'Error interno del servidor', 'details': str(e)}), 500
 
 @app.route('/api/trending-predictor/predictions', methods=['GET'])
 @require_auth

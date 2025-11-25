@@ -1,0 +1,78 @@
+{
+  "metadata": {
+    "page_url": "https://www.facebook.com/elcomercio.pe",
+    "total_posts": 4,
+    "scraped_at": "2025-11-18T17:26:19.205843",
+    "execution_time_seconds": 268.1081941127777
+  },
+  "posts": [
+    {
+      "id": "fb_1763504778288_2223",
+      "platform": "facebook",
+      "author": "Diario El Comercio (Perú)",
+      "content": "El presidente de la República del Perú, José Jerí, ha iniciado una gira por las regiones comenzando en Huánuco, apenas un día después de cumplir un mes en el Palacio de Gobierno. ¿Se trata de una verdadera estrategia de #descentralización o de un intento por mejorar su #imagen política? En este video analizamos sus declaraciones más relevantes, la reacción de los gobiernos regionales y las cifras de aprobación que muestran un bajo respaldo en el sur del país. ¿Qué dice el sur? ¿Logrará la gira cambiar el rumbo o es solo parte del discurso de un gobierno de transición?",
+      "image_url": null,
+      "url": "",
+      "created_at": "2025-11-18T17:26:18.288474",
+      "metrics": {
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "retweets": 0
+      },
+      "category": "tecnologia",
+      "sentiment": "neutral"
+    },
+    {
+      "id": "fb_1763504778510_7743",
+      "platform": "facebook",
+      "author": "Diario El Comercio (Perú)",
+      "content": "París da la bienvenida a la temporada navideña con el encendido de las luces en los Campos Elíseos.  El espectáculo de luces atrae tanto a locales como a turistas.... Ver más",
+      "image_url": null,
+      "url": "",
+      "created_at": "2025-11-18T17:26:18.510747",
+      "metrics": {
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "retweets": 0
+      },
+      "category": "noticias",
+      "sentiment": "neutral"
+    },
+    {
+      "id": "fb_1763504778917_8074",
+      "platform": "facebook",
+      "author": "Diario El Comercio (Perú)",
+      "content": "Las máquinas vencieron...  El experimentado piloto de F1 Daniil Kvyat fue superado por casi nada en la final de la temporada de la A2RL.",
+      "image_url": null,
+      "url": "",
+      "created_at": "2025-11-18T17:26:18.917461",
+      "metrics": {
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "retweets": 0
+      },
+      "category": "noticias",
+      "sentiment": "neutral"
+    },
+    {
+      "id": "fb_1763504779205_5408",
+      "platform": "facebook",
+      "author": "Diario El Comercio (Perú)",
+      "content": "Piden frenar el Reinfo.  En un pronunciamiento, advirtieron que incumplir los compromisos asumidos en la CAN puede ameritar una serie sanciones, entre ellas la restric... Ver más",
+      "image_url": null,
+      "url": "",
+      "created_at": "2025-11-18T17:26:19.205257",
+      "metrics": {
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "retweets": 0
+      },
+      "category": "tecnologia",
+      "sentiment": "neutral"
+    }
+  ]
+}

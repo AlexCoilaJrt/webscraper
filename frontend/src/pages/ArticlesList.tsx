@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -56,6 +56,7 @@ const ArticlesList: React.FC = () => {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [selectedNewspaper, setSelectedNewspaper] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedRegion, setSelectedRegion] = useState('');
@@ -68,6 +69,8 @@ const ArticlesList: React.FC = () => {
   const [categories, setCategories] = useState<string[]>([]);
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const latestRequestRef = useRef(0);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Clasificación de periódicos nacionales y extranjeros
   const nationalNewspapers = [
@@ -92,6 +95,7 @@ const ArticlesList: React.FC = () => {
   };
 
   const loadArticles = useCallback(async () => {
+    let requestId = 0;
     try {
       setLoading(true);
       setError(null);
@@ -104,7 +108,7 @@ const ArticlesList: React.FC = () => {
       if (selectedNewspaper) params.newspaper = selectedNewspaper;
       if (selectedCategory) params.category = selectedCategory;
       if (selectedRegion) params.region = selectedRegion;
-      if (searchTerm) params.search = searchTerm;
+      if (debouncedSearchTerm) params.search = debouncedSearchTerm;
       if (dateFrom) {
         params.dateFrom = dateFrom;
         console.log(`📅 Filtro fecha desde: ${dateFrom}`);
@@ -116,21 +120,46 @@ const ArticlesList: React.FC = () => {
 
       console.log('🔍 Cargando artículos con parámetros:', params);
 
-      const response = await apiService.getArticles(params) as any;
+      // Cancelar petición anterior si sigue en vuelo
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+
+      requestId = Date.now();
+      latestRequestRef.current = requestId;
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+
+      const response = await apiService.getArticles(params, { signal: controller.signal }) as any;
+      if (latestRequestRef.current !== requestId) {
+        // Hay una petición más reciente, ignorar esta respuesta
+        return;
+      }
       
       let filteredArticles = response.articles;
 
       console.log('📰 Artículos cargados:', filteredArticles.length);
       setArticles(filteredArticles);
       setTotalPages(response.pagination.pages);
+      // Si otra petición anterior falló, asegúrate de limpiar el mensaje de error
+      setError(null);
       
-    } catch (err) {
-      setError('Error cargando artículos');
+    } catch (err: any) {
+      if (latestRequestRef.current !== requestId) {
+        return;
+      }
+      if (err?.code === 'ERR_CANCELED' || err?.name === 'CanceledError') {
+        return;
+      }
+      const backendMessage = err?.response?.data?.error;
+      setError(backendMessage ? `Error cargando artículos: ${backendMessage}` : 'Error cargando artículos');
       console.error('Error loading articles:', err);
     } finally {
-      setLoading(false);
+      if (latestRequestRef.current === requestId) {
+        setLoading(false);
+      }
     }
-  }, [page, selectedNewspaper, selectedCategory, selectedRegion, searchTerm, dateFrom, dateTo]);
+  }, [page, selectedNewspaper, selectedCategory, selectedRegion, debouncedSearchTerm, dateFrom, dateTo]);
 
   const loadFilters = async () => {
     try {
@@ -146,8 +175,24 @@ const ArticlesList: React.FC = () => {
     }
   };
 
+  // Debounce para búsqueda - recargar después de que el usuario deje de escribir
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const normalized = searchTerm.trim();
+      setDebouncedSearchTerm(normalized);
+      setPage((prev) => (prev === 1 ? prev : 1)); // Resetear página solo si es necesario
+    }, 400);
+    
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
   useEffect(() => {
     loadArticles();
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
   }, [loadArticles]);
 
   useEffect(() => {

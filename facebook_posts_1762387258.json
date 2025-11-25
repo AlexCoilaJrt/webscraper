@@ -1,0 +1,61 @@
+{
+  "metadata": {
+    "page_url": "https://www.facebook.com/elcomercio.pe",
+    "total_posts": 3,
+    "scraped_at": "2025-11-05T19:00:58.637304",
+    "execution_time_seconds": 118.83188796043396
+  },
+  "posts": [
+    {
+      "id": "fb_1762387258315_7561",
+      "platform": "facebook",
+      "author": "",
+      "content": "Hoy en #TenemosQueHablar, recibimos a dos figuras históricas del #APRA: #JorgeDelCastillo y #JavierVelásquezQuesquén, quienes aspiran a liderar el partido de cara a las elecciones internas rumbo al 2026. Ambos precandidatos analizan la situación actual del país, el rol del aprismo en la política peruana, y presentan sus propuestas para renovar el partido desde dentro.#JorgeDelCastillo #VelásquezQuesquén #APRA2026 #precandidatos #entrevistaenVivo #TenemosQueHablar",
+      "image_url": null,
+      "url": "",
+      "created_at": "2025-11-05T19:00:58.315388",
+      "metrics": {
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "retweets": 0
+      },
+      "category": "deportes",
+      "sentiment": "neutral"
+    },
+    {
+      "id": "fb_1762387258475_5854",
+      "platform": "facebook",
+      "author": "",
+      "content": "Agenda del CADE para hoy.  En la jornada del miércoles 5 de noviembre participarán Denisse Miralles, Luis Carranza, Bartolomé Abdala, Diego Macera y María Corina Macha... Ver más",
+      "image_url": null,
+      "url": "",
+      "created_at": "2025-11-05T19:00:58.475196",
+      "metrics": {
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "retweets": 0
+      },
+      "category": "noticias",
+      "sentiment": "neutral"
+    },
+    {
+      "id": "fb_1762387258636_8433",
+      "platform": "facebook",
+      "author": "",
+      "content": "¿Estas buscando ‘chamba’?  Mira AQUÍ cuáles son los puestos que busca cubrir la ONPE y los requisitos que exigen, además de otros detalles importantes",
+      "image_url": null,
+      "url": "",
+      "created_at": "2025-11-05T19:00:58.636800",
+      "metrics": {
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "retweets": 0
+      },
+      "category": "noticias",
+      "sentiment": "neutral"
+    }
+  ]
+}

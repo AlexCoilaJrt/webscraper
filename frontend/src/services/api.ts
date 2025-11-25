@@ -188,8 +188,11 @@ export const apiService = {
     newspaper?: string;
     category?: string;
     region?: string;
-  } = {}) => {
-    const response = await api.get('/articles', { params });
+    search?: string;
+    dateFrom?: string;
+    dateTo?: string;
+  } = {}, config: Record<string, any> = {}) => {
+    const response = await api.get('/articles', { params, ...config });
     return response.data;
   },
 
@@ -332,7 +335,7 @@ export const apiService = {
   // ===== TRENDING TOPICS PREDICTOR =====
   
   generateTrendingPredictions: async (limit: number = 10) => {
-    const response = await api.post('/trending-predictor/generate', { limit });
+    const response = await api.post('/trending-predictor/generate', { limit }, { timeout: 120000 }); // 2 minutos para análisis complejo
     return response.data;
   },
 
@@ -366,7 +369,7 @@ export const apiService = {
     limits?: any;
     error?: string;
   }> => {
-    const response = await api.post('/chat', payload, { timeout: 60000 });
+    const response = await api.post('/chat', payload, { timeout: 60000 }); // 60 segundos para búsquedas complejas
     return response.data as {
       reply: string;
       data?: any;

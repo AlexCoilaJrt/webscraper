@@ -1,0 +1,44 @@
+{
+  "about": "Portal de noticias con extracción y análisis. Permite buscar, filtrar por fechas, resumir, exportar, y programar actualizaciones. No responde con fuentes externas; usa solo la base interna.",
+  "sections": {
+    "Principal": "Panel con estado del scraping, tarjetas de métricas (artículos, imágenes, periódicos, categorías) y accesos a Iniciar Scraping y Actualizar Automático.",
+    "Artículos": "Listado de artículos con búsqueda, filtros por periódico, categoría, región y rango de fechas. Permite abrir enlaces y ver detalles.",
+    "Imágenes": "Galería con filtros por artículo. Muestra metadatos de imágenes descargadas.",
+    "Análisis": "Estadísticas generales por medio, categorías, sesiones y tendencias.",
+    "Redes Sociales": "Módulo académico de demostración para analizar publicaciones de plataformas (p. ej. Twitter/X). Permite configurar plataforma, modo de scraping (hashtag/palabra clave), cantidad de posts, idioma y ver métricas (total posts, por plataforma, categorías, sentimientos). Es solo con fines educativos; respeta límites y no requiere credenciales del usuario.",
+    "Suscripciones": "Planes Freemium, Premium y Enterprise con límites. Premium/Enterprise habilitan exportación y auto‑update.",
+    "Búsqueda": "Sugerencias y búsqueda avanzada por texto, fechas, medio y categoría.",
+    "Scraping": "Ejecución manual del scraping con parámetros: url, método, máximo de artículos e imágenes, categoría, periódico, región.",
+    "Actualizar Automático": "Programa una ejecución automática que recorre fuentes definidas.",
+    "Estadísticas": "Visualiza métricas agregadas: artículos por medio y categoría, sesiones, tendencias y comparativas.",
+    "Favoritos": "Listado de artículos marcados como favoritos para un acceso rápido (si está habilitado en tu build).",
+    "Competitive Intelligence": "Seguimiento de competidores, definición de palabras clave/domios, alertas y análisis (si está habilitado).",
+    "Trending Predictor": "Genera predicciones de temas en tendencia a partir de tu base para explorar oportunidades (si está habilitado).",
+    "Base de Datos": "Resumen y mantenimiento de datos, limpieza por periódico, ver conteos y fechas.",
+    "Usuarios": "Gestión de usuarios y roles (admin/usuario).",
+    "Pagos": "Gestión de códigos de pago y verificación de suscripciones."
+  },
+  "howto": {
+    "filtrar_fechas": "En Artículos, usa 'Fecha desde' y 'Fecha hasta' en formato YYYY-MM-DD. El backend normaliza fechas legibles y ISO.",
+    "exportar": "Botones Exportar Excel/CSV en Artículos. Requiere plan Premium o Enterprise.",
+    "auto_update": "Botón Actualizar Automático en Principal. Requiere Premium/Enterprise.",
+    "limites": "Freemium: 50 artículos/día y 10 imágenes por ejecución; Premium: 500 y 100; Enterprise: sin límites.",
+    "redes_config": "En Redes Sociales, elige la plataforma (Twitter/X), modo 'Búsqueda por Hashtag/Palabra Clave', define cantidad de posts, idioma y ejecuta. Luego revisa totales, categorías y sentimientos.",
+    "busqueda": "Usa el cuadro de texto o la búsqueda avanzada; puedes combinar texto, medio, categoría y rango de fechas.",
+    "estadisticas": "Abre Análisis o Estadísticas para ver gráficos. Los filtros se heredan de la selección actual cuando aplique.",
+    "cambiar_plan": "Ingresa a Suscripciones, elige el plan y genera un código de pago si corresponde; un admin puede verificarlo.",
+    "gestion_bd": "En Base de Datos, puedes ver conteos y limpiar datos de un periódico específico.",
+    "usuarios": "En Usuarios, crea/edita roles. Admin tiene acceso completo; usuario respeta límites del plan."
+  },
+  "faq": [
+    "¿De qué trata esta página?",
+    "¿Cómo busco noticias por fechas?",
+    "¿Cómo exporto a Excel o CSV?",
+    "¿Qué incluye el plan Premium?",
+    "¿Qué es Actualizar Automático?",
+    "¿Dónde veo estadísticas?",
+    "¿Cómo cambio de plan?",
+    "¿Cuántos artículos tengo hoy?"
+  ]
+}
+

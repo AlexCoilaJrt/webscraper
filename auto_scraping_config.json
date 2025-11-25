@@ -241,6 +241,30 @@
         "region": "Extranjero",
         "cron_schedule": "*/5 * * * *",
         "enabled": true
+      },
+      {
+        "name": "Radio Azul - Cada 5 horas",
+        "url": "https://radioondaazul.com/",
+        "method": "auto",
+        "max_articles": 40,
+        "max_images": 1,
+        "category": "General",
+        "newspaper": "Radio Azul",
+        "region": "Extranjero",
+        "cron_schedule": "*/5 * * * *",
+        "enabled": true
+      },
+      {
+        "name": "Radio Onda Azul - Cada 5 horas",
+        "url": "https://radioondaazul.com/",
+        "method": "auto",
+        "max_articles": 40,
+        "max_images": 1,
+        "category": "General",
+        "newspaper": "Radio Onda Azul",
+        "region": "Extranjero",
+        "cron_schedule": "*/5 * * * *",
+        "enabled": true
       }
     ]
   }

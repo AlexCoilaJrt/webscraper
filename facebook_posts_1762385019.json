@@ -1,0 +1,112 @@
+{
+  "metadata": {
+    "page_url": "https://www.facebook.com/elcomercio.pe",
+    "total_posts": 6,
+    "scraped_at": "2025-11-05T18:23:39.182116",
+    "execution_time_seconds": 83.65672993659973
+  },
+  "posts": [
+    {
+      "id": "fb_1762385018263_2846",
+      "platform": "facebook",
+      "author": "Diario El Comercio (Perú)",
+      "content": "Hoy en #TenemosQueHablar, recibimos a dos figuras históricas del #APRA: #JorgeDelCastillo y #JavierVelásquezQuesquén, quienes aspiran a liderar el partido de cara a las elecciones internas rumbo al 2026. Ambos precandidatos analizan la situación actual del país, el rol del aprismo en la política peruana, y presentan sus propuestas para renovar el partido desde dentro.#JorgeDelCastillo #VelásquezQuesquén #APRA2026 #precandidatos #entrevistaenVivo #TenemosQueHablar",
+      "image_url": null,
+      "url": "",
+      "created_at": "2025-11-05T18:23:38.263751",
+      "metrics": {
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "retweets": 0
+      },
+      "category": "deportes",
+      "sentiment": "neutral"
+    },
+    {
+      "id": "fb_1762385018441_3698",
+      "platform": "facebook",
+      "author": "Diario El Comercio (Perú)",
+      "content": "¿Interfieren en tu conexión?  Por qué tus electrodomésticos pueden ser los verdaderos culpables de una conexión a internet inestable y qué hacer al respecto",
+      "image_url": null,
+      "url": "",
+      "created_at": "2025-11-05T18:23:38.441835",
+      "metrics": {
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "retweets": 0
+      },
+      "category": "tecnologia",
+      "sentiment": "neutral"
+    },
+    {
+      "id": "fb_1762385018629_7802",
+      "platform": "facebook",
+      "author": "Diario El Comercio (Perú)",
+      "content": "Podría estar afectando tu internet.  Es recomendable alejar este dispositivo de determinados rincones del hogar. ¿Cuáles son los sitios menos aconsejables?",
+      "image_url": null,
+      "url": "",
+      "created_at": "2025-11-05T18:23:38.629811",
+      "metrics": {
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "retweets": 0
+      },
+      "category": "tecnologia",
+      "sentiment": "neutral"
+    },
+    {
+      "id": "fb_1762385018844_7913",
+      "platform": "facebook",
+      "author": "Diario El Comercio (Perú)",
+      "content": "El hecho ocurrió durante una ceremonia de clausura en una escuela policial de Huánuco. Mientras algunos defienden la práctica como una tradición que simboliza valentí... Ver más",
+      "image_url": null,
+      "url": "",
+      "created_at": "2025-11-05T18:23:38.844768",
+      "metrics": {
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "retweets": 0
+      },
+      "category": "tecnologia",
+      "sentiment": "neutral"
+    },
+    {
+      "id": "fb_1762385019011_8521",
+      "platform": "facebook",
+      "author": "Diario El Comercio (Perú)",
+      "content": "Partidazo en Andahuaylas  Liga 1 MAX EN VIVO: Alianza Lima vs. Chankas EN VIVO: ver transmisión del minuto a minuto del partido por fecha pendiente del Torneo Clausura de la Liga 1.",
+      "image_url": null,
+      "url": "",
+      "created_at": "2025-11-05T18:23:39.011746",
+      "metrics": {
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "retweets": 0
+      },
+      "category": "tecnologia",
+      "sentiment": "neutral"
+    },
+    {
+      "id": "fb_1762385019181_3415",
+      "platform": "facebook",
+      "author": "Diario El Comercio (Perú)",
+      "content": "¿Rechazaron tu retiro?  Las AFP pueden denegar solicitudes si detectan errores en los datos personales o bancarios. Conoce cómo debes actuar si te pasa esto.",
+      "image_url": null,
+      "url": "",
+      "created_at": "2025-11-05T18:23:39.181735",
+      "metrics": {
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "retweets": 0
+      },
+      "category": "noticias",
+      "sentiment": "neutral"
+    }
+  ]
+}

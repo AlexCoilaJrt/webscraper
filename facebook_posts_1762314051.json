@@ -1,0 +1,44 @@
+{
+  "metadata": {
+    "page_url": "https://www.facebook.com/elcomercio.pe",
+    "total_posts": 2,
+    "scraped_at": "2025-11-04T22:40:51.061292",
+    "execution_time_seconds": 369.89482283592224
+  },
+  "posts": [
+    {
+      "id": "fb_1762313745866_3023",
+      "platform": "facebook",
+      "author": "Diario El Comercio (Perú)",
+      "content": "Yo mi cuarto lo tengo \"a todo dar\" y hasta le he instalado terma eléctrica hace 3 meses Tengo mi bidón de agua mineral , mis cremas para el rostro , talco , colonias, mi clóset bien surtido , Mi guitarra , mi bongó , mi parlante para oír música y bailar , y mis libros Y me faltan comprar algunas cosas como para el decorado ambiental",
+      "image_url": null,
+      "url": "https://www.facebook.com/elcomercio.pe/posts/pfbid02jPm4w8m7VuBdKWa6fgUdwJ1L5JzcrwiS8wsucBJdg7UskXpwu9jEgnHzGg1VPxHLl?comment_id=1364927278313907&__cft__[0]=AZWSVVTIXNTXkg4T8wcnxYUmaRjuMO27xWP-YY0f83NU-1eMSoUyM2s2PWj44E8RV5AZVpVIiIr177xMpQj3etOswBYlccn-NAuT7n6zZV_OHCZ3cn6NCIpGIL47fv23Ex15li1hv1038JQjH6c1go-5mwYfZPkTgsoImKvHKhVyVlonwNDzDuFoJ2RIXwreJW0&__tn__=R-R",
+      "created_at": "2025-11-04T22:35:45.866769",
+      "metrics": {
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "retweets": 0
+      },
+      "category": "tecnologia",
+      "sentiment": "neutral"
+    },
+    {
+      "id": "fb_1762313816757_4033",
+      "platform": "facebook",
+      "author": "Diario El Comercio (Perú)",
+      "content": "Noe Otarola\nlos que hacen chillar a los goncas",
+      "image_url": null,
+      "url": "https://www.facebook.com/elcomercio.pe/posts/pfbid024K72pmEjBy4ykeoTFrP6kfwHm79j33qWGqukYMTVjeqzhc3xSbgqbywMdEt2kLPul?comment_id=1371369691002852&reply_comment_id=1140167278246136&__cft__[0]=AZUvqyAJCkppurwelLSki8OWyFRQP39rGnnTLg0fp8zgUwgSUkwdukLqF0tHXXXjmBf7jrXGgbSkZqCra24SJFgXQ_N1XaE0HR8H75VkOrPoiAR3v-_un8OxTfw9VErO31f1lTgPvnrVI78epichhS1m4DUyDYi8eyc9q7BGbtjsJxozRn0bheklgoO5sHkRcMo&__tn__=R-R",
+      "created_at": "2025-11-04T22:36:56.757892",
+      "metrics": {
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "retweets": 0
+      },
+      "category": "noticias",
+      "sentiment": "neutral"
+    }
+  ]
+}
