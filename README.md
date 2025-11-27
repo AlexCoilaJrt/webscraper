@@ -53,13 +53,19 @@ npm start
 - **Integración con anuncios**: colocación inteligente de anuncios según sentimiento
 
 ### 💬 Chatbot Inteligente con LLM
-- **Asistente conversacional** integrado con LLM (Ollama/OpenRouter)
+- **Asistente conversacional** integrado con LLM (Ollama/OpenRouter/Groq/Hugging Face)
 - **Búsqueda inteligente** de artículos por texto, fecha o tema
 - **Resúmenes automáticos** de noticias
 - **Consulta de planes** y límites de suscripción
 - **Detección automática de fechas**: soporta "hoy", "esta semana", "este mes", rangos personalizados
 - **Prompts rápidos** para consultas comunes
-- **Configuración flexible**: Ollama (local, gratuito) o OpenRouter (API externa)
+- **Configuración flexible**: Ollama (local, gratuito), OpenRouter, Groq, o Hugging Face (API externa)
+- **Sistema de fallback inteligente**: Si el LLM configurado falla, el sistema automáticamente:
+  1. Intenta APIs gratuitas sin key (Together AI, Perplexity, DeepInfra)
+  2. Si fallan, intenta el proveedor configurado (Groq, Hugging Face, OpenRouter, Ollama)
+  3. Si el proveedor configurado falla, intenta Hugging Face como fallback automático
+  4. Si todo falla o hay timeout (8 segundos), usa un sistema de respuestas inteligentes basado en el contexto del portal
+- **Siempre funcional**: El chatbot siempre responderá, incluso si todos los LLMs fallan, usando respuestas contextuales inteligentes
 
 ### 📢 Sistema de Anuncios (Ads)
 - **Gestión de campañas publicitarias** completa
@@ -299,7 +305,10 @@ LLM_MODEL=mistralai/Mistral-7B-Instruct-v0.2
 HUGGINGFACE_API_KEY=opcional-para-mejores-limites
 ```
 
-**Nota**: El sistema funciona perfectamente sin LLM. Solo el chatbot no funcionará, pero todas las demás funcionalidades estarán disponibles.
+**Nota**: El sistema funciona perfectamente sin LLM. El chatbot **siempre funcionará** gracias a su sistema de fallback inteligente:
+- Si el LLM configurado falla, intenta automáticamente otras APIs gratuitas
+- Si todas fallan, usa respuestas contextuales inteligentes basadas en el conocimiento del portal
+- Todas las demás funcionalidades están disponibles independientemente del estado del LLM
 
 ### 5. Configurar LLM (Opcional - Solo para Chatbot)
 
@@ -493,7 +502,16 @@ El sistema crea automáticamente un usuario administrador al iniciar por primera
    - Resúmenes: "resumen selección peruana esta semana"
    - Filtros por fecha: "rpp 2025-01-01 a 2025-12-31"
    - Tu plan: "mi plan"
-4. **Recibe respuestas** generadas por LLM
+4. **Recibe respuestas** generadas por LLM o sistema de fallback inteligente
+
+**Sistema de Fallback del Chatbot:**
+- El chatbot **siempre responderá**, incluso si el LLM falla
+- Si el LLM configurado no está disponible, el sistema automáticamente:
+  1. Intenta APIs gratuitas sin key
+  2. Intenta el proveedor configurado
+  3. Usa Hugging Face como fallback automático
+  4. Si todo falla, usa respuestas contextuales inteligentes basadas en el conocimiento del portal
+- Las respuestas de fallback son contextuales y útiles, aunque no tan elaboradas como las del LLM
 
 ### 👥 Gestión de Usuarios (Admin)
 1. Ve a la pestaña **"USUARIOS"**
@@ -938,9 +956,10 @@ pip install -r requirements.txt
 cd frontend && npm install
 ```
 
-### Chatbot no funciona
+### Chatbot no funciona o responde con fallback
 ```bash
-# El chatbot requiere un LLM configurado. Verifica:
+# El chatbot SIEMPRE funciona, incluso sin LLM configurado.
+# Si el LLM falla, usa un sistema de fallback inteligente.
 
 # 1. Verificar estado del LLM
 curl http://localhost:5001/api/llm/status
@@ -948,12 +967,21 @@ curl http://localhost:5001/api/llm/status
 # 2. Si usa Ollama, verificar que esté corriendo
 curl http://localhost:11434/api/tags
 
-# 3. Si no tienes LLM configurado, el chatbot mostrará un mensaje de error
-#    pero el resto del sistema funcionará normalmente
+# 3. Sistema de Fallback del Chatbot:
+#    - Si el LLM configurado falla, intenta automáticamente APIs gratuitas
+#    - Si todas fallan, usa respuestas contextuales inteligentes
+#    - El chatbot SIEMPRE responderá, aunque sea con fallback
 
-# 4. Para configurar LLM gratuito, ver:
-#    - CONFIGURAR_LLM_GRATIS.md
+# 4. Para mejorar las respuestas del chatbot, configura un LLM:
+#    - CONFIGURAR_LLM_GRATIS.md - Para opciones gratuitas
+#    - CONFIGURAR_LLM.md - Para configuración completa
 #    - O instalar Ollama: https://ollama.ai
+
+# 5. Orden de intentos del sistema:
+#    1. APIs gratuitas sin key (Together AI, Perplexity, DeepInfra)
+#    2. Proveedor configurado (Groq, Hugging Face, OpenRouter, Ollama)
+#    3. Hugging Face como fallback automático
+#    4. Sistema de respuestas inteligentes (siempre disponible)
 ```
 
 ### Scraping automático no funciona
