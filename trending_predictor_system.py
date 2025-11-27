@@ -79,25 +79,25 @@ class TrendingTopicsPredictor:
         logger.info(f"🔍 Analizando patrones históricos de {days_back} días...")
         
         try:
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
         except Exception as e:
             logger.error(f"Error conectando a la base de datos {self.db_path}: {e}")
             return {'success': False, 'error': f'Error de conexión a la base de datos: {str(e)}'}
         
         try:
             # Obtener artículos de los últimos días (limitado a 5000 para mejor rendimiento)
-            start_date = datetime.now() - timedelta(days=days_back)
-            cursor.execute('''
-                SELECT title, content, newspaper, scraped_at
-                FROM articles 
-                WHERE scraped_at >= ?
-                ORDER BY scraped_at DESC
+        start_date = datetime.now() - timedelta(days=days_back)
+        cursor.execute('''
+            SELECT title, content, newspaper, scraped_at
+            FROM articles 
+            WHERE scraped_at >= ?
+            ORDER BY scraped_at DESC
                 LIMIT 5000
-            ''', (start_date.strftime('%Y-%m-%d'),))
-            
-            articles = cursor.fetchall()
-            logger.info(f"📊 Analizando {len(articles)} artículos históricos...")
+        ''', (start_date.strftime('%Y-%m-%d'),))
+        
+        articles = cursor.fetchall()
+        logger.info(f"📊 Analizando {len(articles)} artículos históricos...")
             
             if len(articles) == 0:
                 logger.warning("No se encontraron artículos para analizar")
@@ -108,36 +108,36 @@ class TrendingTopicsPredictor:
                     'articles_analyzed': 0
                 }
         
-            # Análisis de palabras clave por día
-            daily_keywords = defaultdict(Counter)
-            topic_momentum = defaultdict(list)
-            
-            for title, content, newspaper, scraped_at in articles:
-                try:
-                    # Manejar diferentes formatos de fecha
-                    if 'T' in scraped_at:
-                        # Formato ISO con microsegundos: 2025-09-13T18:50:19.914231
-                        date_str = scraped_at.split('T')[0]  # Solo la parte de fecha
-                        date = datetime.strptime(date_str, '%Y-%m-%d').date()
-                    else:
-                        # Formato tradicional: 2025-09-13 18:50:19
-                        date = datetime.strptime(scraped_at, '%Y-%m-%d %H:%M:%S').date()
-                    text = f"{title} {content}".lower()
+        # Análisis de palabras clave por día
+        daily_keywords = defaultdict(Counter)
+        topic_momentum = defaultdict(list)
+        
+        for title, content, newspaper, scraped_at in articles:
+            try:
+                # Manejar diferentes formatos de fecha
+                if 'T' in scraped_at:
+                    # Formato ISO con microsegundos: 2025-09-13T18:50:19.914231
+                    date_str = scraped_at.split('T')[0]  # Solo la parte de fecha
+                    date = datetime.strptime(date_str, '%Y-%m-%d').date()
+                else:
+                    # Formato tradicional: 2025-09-13 18:50:19
+                    date = datetime.strptime(scraped_at, '%Y-%m-%d %H:%M:%S').date()
+                text = f"{title} {content}".lower()
+                
+                # Extraer palabras clave relevantes
+                keywords = self._extract_trending_keywords(text)
+                
+                for keyword in keywords:
+                    daily_keywords[date][keyword] += 1
+                    topic_momentum[keyword].append(date)
                     
-                    # Extraer palabras clave relevantes
-                    keywords = self._extract_trending_keywords(text)
-                    
-                    for keyword in keywords:
-                        daily_keywords[date][keyword] += 1
-                        topic_momentum[keyword].append(date)
-                        
-                except Exception as e:
-                    logger.error(f"Error procesando artículo: {e}")
-                    continue
-            
+            except Exception as e:
+                logger.error(f"Error procesando artículo: {e}")
+                continue
+        
             # Calcular patrones de crecimiento (FUERA del bucle)
-            growth_patterns = self._calculate_growth_patterns(daily_keywords, topic_momentum)
-            
+        growth_patterns = self._calculate_growth_patterns(daily_keywords, topic_momentum)
+        
             if len(growth_patterns) == 0:
                 logger.warning("No se identificaron patrones de crecimiento")
                 conn.close()
@@ -148,15 +148,15 @@ class TrendingTopicsPredictor:
                     'patterns_analyzed': 0
                 }
             
-            conn.close()
-            
-            logger.info(f"✅ Análisis completado: {len(growth_patterns)} patrones identificados")
-            return {
-                'success': True,
-                'patterns_analyzed': len(growth_patterns),
-                'articles_analyzed': len(articles),
-                'growth_patterns': growth_patterns
-            }
+        conn.close()
+        
+        logger.info(f"✅ Análisis completado: {len(growth_patterns)} patrones identificados")
+        return {
+            'success': True,
+            'patterns_analyzed': len(growth_patterns),
+            'articles_analyzed': len(articles),
+            'growth_patterns': growth_patterns
+        }
         except sqlite3.Error as e:
             logger.error(f"Error de base de datos: {e}")
             try:
@@ -389,14 +389,14 @@ class TrendingTopicsPredictor:
         
         # Guardar predicciones
         try:
-            self._save_predictions(user_id, predictions)
+        self._save_predictions(user_id, predictions)
         except Exception as e:
             logger.error(f"Error guardando predicciones: {e}", exc_info=True)
             # Continuar aunque falle el guardado
         
         # Actualizar uso diario
         try:
-            self._update_daily_usage(user_id)
+        self._update_daily_usage(user_id)
         except Exception as e:
             logger.error(f"Error actualizando uso diario: {e}", exc_info=True)
             # Continuar aunque falle la actualización
@@ -488,33 +488,33 @@ class TrendingTopicsPredictor:
     def _save_predictions(self, user_id: int, predictions: List[Dict]):
         """Guardar predicciones en la base de datos"""
         try:
-            conn = sqlite3.connect("trending_predictions.db")
-            cursor = conn.cursor()
-            
-            for prediction in predictions:
+        conn = sqlite3.connect("trending_predictions.db")
+        cursor = conn.cursor()
+        
+        for prediction in predictions:
                 try:
-                    cursor.execute('''
-                        INSERT INTO predictions 
-                        (user_id, prediction_date, topic, confidence_score, viral_potential, 
-                         time_to_trend, keywords, sources, category)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    ''', (
-                        user_id,
-                        datetime.now(),
-                        prediction['topic'],
-                        prediction['confidence_score'],
-                        prediction['viral_potential'],
-                        prediction['time_to_trend_hours'],
-                        json.dumps(prediction['keywords']),
-                        json.dumps(prediction['sources']),
-                        prediction['category']
-                    ))
+            cursor.execute('''
+                INSERT INTO predictions 
+                (user_id, prediction_date, topic, confidence_score, viral_potential, 
+                 time_to_trend, keywords, sources, category)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                user_id,
+                datetime.now(),
+                prediction['topic'],
+                prediction['confidence_score'],
+                prediction['viral_potential'],
+                prediction['time_to_trend_hours'],
+                json.dumps(prediction['keywords']),
+                json.dumps(prediction['sources']),
+                prediction['category']
+            ))
                 except Exception as e:
                     logger.error(f"Error guardando predicción individual: {e}")
                     continue
-            
-            conn.commit()
-            conn.close()
+        
+        conn.commit()
+        conn.close()
         except Exception as e:
             logger.error(f"Error en _save_predictions: {e}", exc_info=True)
             raise
@@ -522,12 +522,12 @@ class TrendingTopicsPredictor:
     def _update_daily_usage(self, user_id: int):
         """Actualizar uso diario del usuario"""
         try:
-            conn = sqlite3.connect("trending_predictions.db")
-            cursor = conn.cursor()
-            
-            today = datetime.now().date()
-            plan_type = "creator"  # Por defecto
-            
+        conn = sqlite3.connect("trending_predictions.db")
+        cursor = conn.cursor()
+        
+        today = datetime.now().date()
+        plan_type = "creator"  # Por defecto
+        
             # Primero verificar si existe un registro para hoy
             cursor.execute('''
                 SELECT predictions_used FROM daily_predictions_usage 
@@ -545,14 +545,14 @@ class TrendingTopicsPredictor:
                 ''', (new_count, user_id, today))
             else:
                 # Crear nuevo registro
-                cursor.execute('''
+        cursor.execute('''
                     INSERT INTO daily_predictions_usage 
-                    (user_id, usage_date, predictions_used, plan_type)
+            (user_id, usage_date, predictions_used, plan_type)
                     VALUES (?, ?, 1, ?)
                 ''', (user_id, today, plan_type))
-            
-            conn.commit()
-            conn.close()
+        
+        conn.commit()
+        conn.close()
         except Exception as e:
             logger.error(f"Error en _update_daily_usage: {e}", exc_info=True)
             raise

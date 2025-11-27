@@ -156,8 +156,8 @@ const ArticlesList: React.FC = () => {
       console.error('Error loading articles:', err);
     } finally {
       if (latestRequestRef.current === requestId) {
-        setLoading(false);
-      }
+      setLoading(false);
+    }
     }
   }, [page, selectedNewspaper, selectedCategory, selectedRegion, debouncedSearchTerm, dateFrom, dateTo]);
 

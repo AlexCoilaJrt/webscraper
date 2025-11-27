@@ -107,7 +107,7 @@ const ChatbotWidget: React.FC = () => {
           <Box sx={{ mb: 1.8 }}>
             <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 600, letterSpacing: 0.4 }}>Sugerencias rápidas</Typography>
             <Stack spacing={1} sx={{ mt: 1.2 }}>
-              {quickPrompts.map((qp) => (
+            {quickPrompts.map((qp) => (
                 <Button
                   key={qp.value}
                   variant="outlined"
@@ -128,8 +128,8 @@ const ChatbotWidget: React.FC = () => {
                 >
                   {qp.label}
                 </Button>
-              ))}
-            </Stack>
+            ))}
+          </Stack>
           </Box>
           <Box
             sx={{

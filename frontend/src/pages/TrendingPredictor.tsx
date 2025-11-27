@@ -100,9 +100,9 @@ const TrendingPredictor: React.FC = () => {
         
         // Recargar información de uso
         try {
-          const usageResponse = await apiService.getDailyUsage() as any;
+        const usageResponse = await apiService.getDailyUsage() as any;
           if (usageResponse && usageResponse.success) {
-            setUsage(usageResponse);
+          setUsage(usageResponse);
           }
         } catch (usageErr) {
           console.warn('Error loading usage:', usageErr);
