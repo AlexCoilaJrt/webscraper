@@ -2,6 +2,44 @@
 
 Un sistema completo de web scraping con análisis inteligente, análisis de sentimientos, sistema de anuncios, chatbot con LLM, gestión de usuarios y suscripciones. Extrae artículos de múltiples periódicos y los almacena en una base de datos SQLite con interfaz web moderna.
 
+## ⚡ Inicio Rápido
+
+¿Quieres empezar rápido? Sigue estos pasos:
+
+```bash
+# 1. Clonar el repositorio
+git clone https://github.com/AlexCoilaJrt/webscraper.git
+cd webscraper
+
+# 2. Configurar backend
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+
+# 3. Configurar frontend
+cd frontend
+npm install
+cd ..
+
+# 4. Iniciar el sistema
+# Terminal 1 - Backend
+python api_server.py
+
+# Terminal 2 - Frontend
+cd frontend
+npm start
+```
+
+**Acceder a la aplicación:**
+- Frontend: http://localhost:3001
+- Backend API: http://localhost:5001
+
+**Credenciales por defecto:**
+- Usuario: `admin`
+- Contraseña: `AdminSecure2024!`
+
+> ⚠️ **Nota**: El sistema funciona sin LLM. Solo el chatbot no funcionará sin configuración adicional. Ver sección [Configurar LLM](#4-configurar-llm-opcional---solo-para-chatbot) para habilitar el chatbot.
+
 ## 🌟 Nuevas Funcionalidades
 
 ### ✨ Sistema de Análisis de Sentimientos
@@ -166,11 +204,12 @@ Un sistema completo de web scraping con análisis inteligente, análisis de sent
 ## 📦 Instalación
 
 ### Prerrequisitos
-- Python 3.11 o superior
-- Node.js 16 o superior
-- npm o yarn
-- Git
-- Ollama (opcional, para chatbot con LLM)
+- **Python 3.11 o superior** - [Descargar Python](https://www.python.org/downloads/)
+- **Node.js 16 o superior** - [Descargar Node.js](https://nodejs.org/)
+- **npm o yarn** - Viene incluido con Node.js
+- **Git** - [Descargar Git](https://git-scm.com/downloads)
+- **Chrome o Chromium** - Requerido para Selenium (el sistema descarga ChromeDriver automáticamente)
+- **Ollama (opcional)** - Solo si quieres usar el chatbot con LLM local
 
 ### 1. Clonar el Repositorio
 ```bash
@@ -182,9 +221,20 @@ cd webscraper
 ```bash
 # Crear entorno virtual
 python -m venv venv
-source venv/bin/activate  # En Windows: venv\Scripts\activate
+
+# Activar entorno virtual
+# En macOS/Linux:
+source venv/bin/activate
+# En Windows:
+# venv\Scripts\activate
 
 # Instalar dependencias
+pip install -r requirements.txt
+```
+
+**Nota**: Si tienes problemas con alguna dependencia, intenta actualizar pip:
+```bash
+pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
@@ -194,25 +244,140 @@ cd frontend
 npm install
 ```
 
-### 4. Configurar LLM (Opcional - para Chatbot)
+**Nota**: Si tienes problemas con npm, intenta:
 ```bash
-# Opción 1: Ollama (Recomendado - Gratuito)
-brew install ollama  # macOS
-ollama serve
-ollama pull llama3
+npm cache clean --force
+npm install
+```
+
+### 4. Configurar Variables de Entorno (Opcional)
+
+El sistema funciona sin configuración adicional, pero puedes personalizar opciones creando un archivo `.env` en la raíz del proyecto:
+
+```bash
+# Crear archivo .env (opcional)
+touch .env  # En Windows: crear archivo .env manualmente
+```
+
+**Variables opcionales para el Chatbot con LLM:**
+```env
+# Opción 1: Ollama (Local, Gratuito)
+LLM_PROVIDER=ollama
+LLM_MODEL=llama3
 
 # Opción 2: OpenRouter (API Externa)
-# Crear archivo .env en la raíz:
-# LLM_PROVIDER=openrouter
-# LLM_MODEL=deepseek/deepseek-chat-v3.1:free
-# OPENROUTER_API_KEY=sk-or-tu-api-key
+LLM_PROVIDER=openrouter
+LLM_MODEL=deepseek/deepseek-chat-v3.1:free
+OPENROUTER_API_KEY=sk-or-tu-api-key
+
+# Opción 3: Groq (API Externa, Rápida)
+LLM_PROVIDER=groq
+LLM_MODEL=mixtral-8x7b-32768
+GROQ_API_KEY=tu-groq-api-key
+
+# Opción 4: Hugging Face (Gratuito, sin API key requerida)
+LLM_PROVIDER=huggingface
+LLM_MODEL=mistralai/Mistral-7B-Instruct-v0.2
+HUGGINGFACE_API_KEY=opcional-para-mejores-limites
 ```
 
-### 5. Inicializar Base de Datos
+**Nota**: El sistema funciona perfectamente sin LLM. Solo el chatbot no funcionará, pero todas las demás funcionalidades estarán disponibles.
+
+### 5. Configurar LLM (Opcional - Solo para Chatbot)
+
+#### Opción 1: Ollama (Recomendado - Gratuito y Local)
 ```bash
-# El sistema creará automáticamente todas las bases de datos necesarias
+# macOS
+brew install ollama
+
+# Linux
+curl -fsSL https://ollama.ai/install.sh | sh
+
+# Windows: Descargar desde https://ollama.ai
+
+# Iniciar servidor
+ollama serve
+
+# En otra terminal, descargar modelo
+ollama pull llama3
+```
+
+#### Opción 2: OpenRouter (API Externa)
+1. Crear cuenta en [OpenRouter](https://openrouter.ai/)
+2. Obtener API key
+3. Agregar al archivo `.env`:
+```env
+LLM_PROVIDER=openrouter
+LLM_MODEL=deepseek/deepseek-chat-v3.1:free
+OPENROUTER_API_KEY=sk-or-tu-api-key
+```
+
+#### Opción 3: Hugging Face (Gratuito, sin API key)
+El sistema usa Hugging Face por defecto. No requiere configuración adicional, pero puedes agregar una API key para mejores límites:
+```env
+LLM_PROVIDER=huggingface
+LLM_MODEL=mistralai/Mistral-7B-Instruct-v0.2
+HUGGINGFACE_API_KEY=opcional
+```
+
+Ver [CONFIGURAR_LLM.md](./CONFIGURAR_LLM.md) o [CONFIGURAR_LLM_GRATIS.md](./CONFIGURAR_LLM_GRATIS.md) para más detalles.
+
+### 6. Inicializar Base de Datos
+
+El sistema creará automáticamente todas las bases de datos necesarias al iniciar por primera vez:
+
+```bash
+# Activar entorno virtual si no está activo
+source venv/bin/activate  # macOS/Linux
+# venv\Scripts\activate  # Windows
+
+# Iniciar el servidor (creará las bases de datos automáticamente)
 python api_server.py
 ```
+
+**Bases de datos que se crean automáticamente:**
+- `news_database.db` - Artículos y noticias
+- `auth_database.db` - Usuarios y autenticación
+- `subscription_database.db` - Suscripciones y planes
+- `social_media.db` - Datos de redes sociales (si se usa)
+- `competitive_intelligence.db` - Inteligencia competitiva (si se usa)
+- `trending_predictions.db` - Predicciones trending (si se usa)
+
+**Usuario administrador por defecto:**
+- Se crea automáticamente al iniciar por primera vez
+- **Usuario**: `admin`
+- **Contraseña**: `AdminSecure2024!`
+- **Email**: `admin@webscraper.com`
+
+⚠️ **IMPORTANTE**: Cambia la contraseña del admin después del primer inicio en producción.
+
+### 7. Verificar Instalación
+
+Después de completar los pasos anteriores, verifica que todo esté funcionando:
+
+```bash
+# 1. Verificar que el backend esté corriendo
+curl http://localhost:5001/api/health
+# Debería responder: {"status": "ok"}
+
+# 2. Verificar que el frontend esté accesible
+# Abre en el navegador: http://localhost:3001
+# Deberías ver la página de login
+
+# 3. Iniciar sesión con las credenciales por defecto
+# Usuario: admin
+# Contraseña: AdminSecure2024!
+```
+
+**Si todo funciona correctamente:**
+- ✅ Verás el Dashboard principal
+- ✅ Podrás acceder a todas las funcionalidades
+- ✅ El sistema estará listo para usar
+
+**Si hay problemas:**
+- Revisa la sección [Solución de Problemas](#-solución-de-problemas)
+- Verifica que todos los prerrequisitos estén instalados
+- Asegúrate de que los puertos 5001 y 3001 no estén ocupados
 
 ## 🚀 Uso
 
@@ -238,11 +403,22 @@ El servidor se ejecutará en `http://localhost:5001`
 cd frontend
 npm start
 ```
-La aplicación se abrirá en `http://localhost:3000`
+La aplicación se abrirá automáticamente en `http://localhost:3001` (puerto configurado en `package.json`)
+
+**Nota**: Si el puerto 3001 está ocupado, React te preguntará si quieres usar otro puerto.
 
 ### Credenciales por Defecto
-- **Usuario Admin**: `admin`
+
+El sistema crea automáticamente un usuario administrador al iniciar por primera vez:
+
+- **Usuario**: `admin`
 - **Contraseña**: `AdminSecure2024!`
+- **Email**: `admin@webscraper.com`
+
+⚠️ **IMPORTANTE**: 
+- Estas credenciales se crean automáticamente solo si no existe ningún usuario en la base de datos
+- **Cambia la contraseña** después del primer inicio en producción
+- Puedes crear más usuarios desde el panel de administración una vez que inicies sesión
 
 ## 📖 Funcionalidades Detalladas
 
@@ -674,8 +850,20 @@ curl http://localhost:5001/api/health
 
 ### Error: "ChromeDriver not found"
 ```bash
-# El sistema descarga automáticamente el driver
-# Si falla, instalar Chrome manualmente
+# El sistema descarga automáticamente ChromeDriver usando webdriver-manager
+# Si falla, verifica que tengas Chrome o Chromium instalado:
+
+# macOS
+brew install --cask google-chrome
+
+# Linux (Ubuntu/Debian)
+sudo apt-get update
+sudo apt-get install google-chrome-stable
+
+# Windows: Descargar desde https://www.google.com/chrome/
+
+# Si el problema persiste, el sistema intentará usar undetected-chromedriver
+# que descarga el driver automáticamente
 ```
 
 ### Error: "Module not found"
@@ -687,11 +875,20 @@ cd frontend && npm install
 
 ### Chatbot no funciona
 ```bash
-# Verificar estado del LLM
+# El chatbot requiere un LLM configurado. Verifica:
+
+# 1. Verificar estado del LLM
 curl http://localhost:5001/api/llm/status
 
-# Si usa Ollama, verificar que esté corriendo
+# 2. Si usa Ollama, verificar que esté corriendo
 curl http://localhost:11434/api/tags
+
+# 3. Si no tienes LLM configurado, el chatbot mostrará un mensaje de error
+#    pero el resto del sistema funcionará normalmente
+
+# 4. Para configurar LLM gratuito, ver:
+#    - CONFIGURAR_LLM_GRATIS.md
+#    - O instalar Ollama: https://ollama.ai
 ```
 
 ### Scraping automático no funciona
