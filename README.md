@@ -111,6 +111,24 @@ npm start
 - **Dashboard de redes sociales** con visualizaciones
 - **⚠️ Solo para fines académicos y educativos**
 
+### 🔮 Trending Topics Predictor
+- **Predicción de temas trending** 24-48 horas antes de que se vuelvan virales
+- **Análisis de patrones históricos** de los últimos 14 días
+- **Métricas de confianza** y potencial viral
+- **Extracción automática** de palabras clave relevantes
+- **Categorización automática** (General, Tecnología, Política, etc.)
+- **Dashboard visual** con métricas en tiempo real
+- **Sistema de límites** por plan de suscripción
+
+### 🔍 Competitive Intelligence
+- **Monitoreo de competidores** en tiempo real
+- **Detección automática** de menciones en artículos
+- **Análisis de sentimiento** de menciones
+- **Sistema de alertas** automáticas
+- **Dashboard de métricas** y estadísticas
+- **Sugerencias de IA** para keywords relevantes
+- **Análisis de artículos existentes** sin necesidad de nuevo scraping
+
 ## 📊 Estadísticas del Proyecto
 
 - **📰 Total de artículos extraídos:** 1,600+
@@ -497,6 +515,53 @@ El sistema crea automáticamente un usuario administrador al iniciar por primera
 4. **Revisa** top categorías y periódicos
 5. **Explora** nube de palabras
 6. **Compara** periódicos con métricas detalladas
+
+### 🔮 Trending Topics Predictor
+1. Ve a la pestaña **"TRENDING PREDICTOR"**
+2. **Genera predicciones** de temas que serán trending en 24-48 horas
+3. **Visualiza métricas**:
+   - Nivel de confianza de la predicción
+   - Potencial viral
+   - Tiempo estimado para trending
+   - Tasa de crecimiento
+4. **Analiza palabras clave** relevantes extraídas automáticamente
+5. **Consulta historial** de predicciones anteriores
+6. **Filtra por categoría** (General, Tecnología, Política, etc.)
+
+**Nota**: Requiere análisis de patrones históricos. El sistema analiza los últimos 14 días de artículos para generar predicciones.
+
+### 🔍 Competitive Intelligence
+1. Ve a la pestaña **"COMPETITIVE INTELLIGENCE"**
+2. **Agrega competidores**:
+   - Ingresa nombre del competidor
+   - Define keywords o dominios a monitorear
+   - El sistema detecta automáticamente menciones
+3. **Visualiza analytics**:
+   - Total de menciones por competidor
+   - Distribución por periódico
+   - Análisis de sentimiento de menciones
+   - Tendencias temporales
+4. **Configura alertas** para recibir notificaciones de nuevas menciones
+5. **Analiza artículos existentes** automáticamente al agregar un competidor
+6. **Recibe sugerencias de IA** para keywords relevantes
+
+**Nota**: El sistema analiza automáticamente los últimos 10,000 artículos al agregar un nuevo competidor.
+
+### ⭐ Favoritos
+1. Ve a la pestaña **"FAVORITOS"**
+2. **Marca artículos** como favoritos desde la lista de artículos
+3. **Accede rápidamente** a tus artículos guardados
+4. **Filtra y busca** dentro de tus favoritos
+5. **Elimina favoritos** cuando ya no los necesites
+
+### 🗄️ Configuración de Base de Datos (Admin)
+1. Ve a la pestaña **"BASE DE DATOS"**
+2. **Visualiza estadísticas**:
+   - Total de artículos por periódico
+   - Fechas de primer y último artículo
+   - Total de imágenes
+3. **Limpia datos** por periódico específico
+4. **Gestiona bases de datos** del sistema
 
 ## ⚙️ Configuración Avanzada
 
