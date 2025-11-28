@@ -351,7 +351,7 @@ User=webscraper
 Group=webscraper
 WorkingDirectory=/opt/webscraper
 Environment="PATH=/opt/webscraper/venv/bin"
-ExecStart=/opt/webscraper/venv/bin/python /opt/webscraper/api_server.py
+ExecStart=/opt/webscraper/venv/bin/python /opt/webscraper/backend/core/api_server.py
 Restart=always
 RestartSec=10
 StandardOutput=append:/opt/webscraper/logs/backend.log
@@ -667,7 +667,7 @@ tar -czf $BACKUP_DIR/databases_$DATE.tar.gz /opt/webscraper/data/*.db
 
 # Backup de configuración
 echo "Iniciando backup de configuración..."
-tar -czf $BACKUP_DIR/config_$DATE.tar.gz /opt/webscraper/.env /opt/webscraper/auto_scraping_config.json
+tar -czf $BACKUP_DIR/config_$DATE.tar.gz /opt/webscraper/.env /opt/webscraper/backend/config/auto_scraping_config.json
 
 # Backup de imágenes (opcional)
 # echo "Iniciando backup de imágenes..."
@@ -801,7 +801,7 @@ sudo journalctl -u webscraper-backend -n 50
 # Verificar sintaxis de Python
 cd /opt/webscraper
 source venv/bin/activate
-python -m py_compile api_server.py
+python -m py_compile backend/core/api_server.py
 
 # Verificar puerto
 sudo netstat -tlnp | grep 5001

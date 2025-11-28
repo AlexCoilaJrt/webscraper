@@ -89,7 +89,7 @@ trap cleanup SIGINT SIGTERM
 
 # Iniciar backend
 print_status "Iniciando backend API..."
-python api_server.py &
+python backend/core/api_server.py &
 BACKEND_PID=$!
 
 # Esperar a que el backend esté listo

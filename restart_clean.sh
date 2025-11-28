@@ -33,13 +33,13 @@ pip install -r requirements.txt
 
 # Iniciar WebSocket
 echo "🔌 Iniciando WebSocket..."
-python websocket_server.py &
+python backend/core/websocket_server.py &
 WEBSOCKET_PID=$!
 sleep 2
 
 # Iniciar Backend
 echo "🚀 Iniciando Backend..."
-python api_server.py &
+python backend/core/api_server.py &
 BACKEND_PID=$!
 sleep 3
 

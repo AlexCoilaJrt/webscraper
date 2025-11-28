@@ -14,8 +14,8 @@ import re
 # Agregar el directorio actual al path para importar los módulos
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from hybrid_crawler import HybridDataCrawler
-from optimized_scraper import SmartScraper
+from backend.scrapers.hybrid_crawler import HybridDataCrawler
+from backend.scrapers.optimized_scraper import SmartScraper
 
 # Configurar logging
 logging.basicConfig(

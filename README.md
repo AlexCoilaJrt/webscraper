@@ -2,6 +2,22 @@
 
 Un sistema completo de web scraping con análisis inteligente, análisis de sentimientos, sistema de anuncios, chatbot con LLM, gestión de usuarios y suscripciones. Extrae artículos de múltiples periódicos y los almacena en una base de datos SQLite con interfaz web moderna.
 
+## 📁 Estructura del Proyecto
+
+El proyecto está organizado de forma modular:
+
+- **`backend/`**: Todo el código del backend
+  - `core/`: Servidor principal, autenticación, WebSocket
+  - `scrapers/`: Todos los scrapers (hybrid, optimized, improved, etc.)
+  - `systems/`: Sistemas (competitive intelligence, subscriptions, trending, ads)
+  - `utils/`: Utilidades (sentiment analyzer, AI keyword analyzer)
+  - `config/`: Archivos de configuración
+  - `scripts/`: Scripts de setup y migración
+- **`frontend/`**: Aplicación React con TypeScript
+- **Raíz**: Bases de datos, documentación, scripts de inicio
+
+Ver `ESTRUCTURA_PROYECTO.md` para más detalles.
+
 ## ⚡ Inicio Rápido
 
 ¿Quieres empezar rápido? Sigue estos pasos:
@@ -23,7 +39,7 @@ cd ..
 
 # 4. Iniciar el sistema
 # Terminal 1 - Backend
-python api_server.py
+python backend/core/api_server.py
 
 # Terminal 2 - Frontend
 cd frontend

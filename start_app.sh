@@ -103,7 +103,7 @@ trap cleanup SIGINT SIGTERM
 
 # Iniciar WebSocket server
 print_status "Iniciando servidor WebSocket..."
-python websocket_server.py &
+python backend/core/websocket_server.py &
 WEBSOCKET_PID=$!
 
 # Esperar un poco para que el WebSocket se inicie
@@ -111,7 +111,7 @@ sleep 2
 
 # Iniciar backend
 print_status "Iniciando backend API..."
-python api_server.py &
+python backend/core/api_server.py &
 BACKEND_PID=$!
 
 # Esperar a que el backend esté listo

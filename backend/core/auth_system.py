@@ -13,7 +13,7 @@ from functools import wraps
 from flask import request, jsonify, current_app
 import sqlite3
 import os
-from subscription_system import SubscriptionSystem
+from backend.systems.subscription_system import SubscriptionSystem
 
 # Configuración
 SECRET_KEY = "web_scraper_secret_key_2024"  # En producción usar variable de entorno

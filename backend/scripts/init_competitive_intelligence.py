@@ -16,7 +16,7 @@ def main():
     try:
         # 1. Inicializar sistema de suscripciones
         print("📊 Inicializando sistema de suscripciones...")
-        from subscription_system import SubscriptionSystem
+        from backend.systems.subscription_system import SubscriptionSystem
         sub_system = SubscriptionSystem()
         print("✅ Sistema de suscripciones inicializado")
         

@@ -15,7 +15,7 @@ sleep 3
 echo "🚀 Iniciando backend..."
 cd "/Users/usuario/Documents/scraping 2"
 source venv/bin/activate
-python api_server.py &
+python backend/core/api_server.py &
 BACKEND_PID=$!
 
 # Esperar a que el backend inicie

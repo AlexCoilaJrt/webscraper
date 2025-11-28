@@ -21,7 +21,7 @@ pip install -r requirements.txt
 
 # Iniciar servidor WebSocket
 echo "🌐 Iniciando servidor WebSocket en puerto 8765..."
-python3 websocket_server.py
+python3 backend/core/websocket_server.py
 
 
 

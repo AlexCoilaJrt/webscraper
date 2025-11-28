@@ -17,11 +17,17 @@ import time
 from urllib.parse import urlparse, parse_qs, unquote
 
 # Importar sistema de autenticación
-from auth_system import AuthSystem, require_auth, require_admin, require_user_or_admin
+import sys
+from pathlib import Path
+# Agregar el directorio raíz del proyecto al path
+project_root = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(project_root))
+
+from backend.core.auth_system import AuthSystem, require_auth, require_admin, require_user_or_admin
 
 # Importar sistema de competitive intelligence
-from competitive_intelligence_system import CompetitiveIntelligenceSystem
-from ai_keyword_analyzer import get_ai_suggestions
+from backend.systems.competitive_intelligence_system import CompetitiveIntelligenceSystem
+from backend.utils.ai_keyword_analyzer import get_ai_suggestions
 
 # Sistema de notificaciones simplificado (sin WebSocket)
 def send_scraping_notification(message, status="info"): 
@@ -37,13 +43,12 @@ def send_system_notification(message, status="info"):
     logger.info(f"[SYSTEM] {status.upper()}: {message}")
 
 # Importar nuestros scrapers
-from hybrid_crawler import HybridDataCrawler, crawl_complete_hybrid
-from optimized_scraper import SmartScraper
-from improved_scraper import ImprovedScraper
-from intelligent_analyzer import IntelligentPageAnalyzer
-from optimized_scraper import ArticleData
-from elperuano_scraper import scrape_elperuano_economia
-from pagination_crawler import PaginationCrawler
+from backend.scrapers.hybrid_crawler import HybridDataCrawler, crawl_complete_hybrid
+from backend.scrapers.optimized_scraper import SmartScraper, ArticleData
+from backend.scrapers.improved_scraper import ImprovedScraper
+from backend.scrapers.intelligent_analyzer import IntelligentPageAnalyzer
+from backend.scrapers.elperuano_scraper import scrape_elperuano_economia
+from backend.scrapers.pagination_crawler import PaginationCrawler
 import pandas as pd
 from sqlalchemy import create_engine, text
 import io
@@ -214,7 +219,9 @@ app = Flask(__name__)
 CORS(app)  # Permitir CORS para React
 
 # Configuración de la base de datos SQLite
-DB_PATH = "news_database.db"
+# Las bases de datos se mantienen en la raíz del proyecto
+project_root = Path(__file__).parent.parent.parent
+DB_PATH = str(project_root / "news_database.db")
 
 # Inicializar sistema de autenticación
 auth_system = AuthSystem()
@@ -250,7 +257,7 @@ _load_dotenv_if_exists()
 # Cargar KB del sitio
 def _load_site_kb():
     try:
-        kb_path = os.path.join(os.getcwd(), 'site_kb.json')
+        kb_path = str(project_root / 'backend' / 'config' / 'site_kb.json')
         if os.path.isfile(kb_path):
             with open(kb_path, 'r', encoding='utf-8') as f:
                 return json.load(f)
@@ -1622,7 +1629,8 @@ def detect_and_add_new_newspaper(newspaper_name: str):
     """Detectar si un periódico nuevo debe agregarse automáticamente a la configuración de actualización automática"""
     try:
         # Cargar configuración actual
-        with open('auto_scraping_config.json', 'r', encoding='utf-8') as f:
+        config_path = str(project_root / 'backend' / 'config' / 'auto_scraping_config.json')
+        with open(config_path, 'r', encoding='utf-8') as f:
             config = json.load(f)
         
         schedules = config.get('auto_scraping', {}).get('schedules', [])
@@ -1702,7 +1710,8 @@ def detect_and_add_new_newspaper(newspaper_name: str):
         config['auto_scraping']['schedules'] = schedules
         
         # Guardar configuración
-        with open('auto_scraping_config.json', 'w', encoding='utf-8') as f:
+        config_path = str(project_root / 'backend' / 'config' / 'auto_scraping_config.json')
+        with open(config_path, 'w', encoding='utf-8') as f:
             json.dump(config, f, indent=2, ensure_ascii=False)
         
         logger.info(f"✅ ✅ ✅ Periódico nuevo agregado automáticamente: {newspaper_name}")
@@ -1847,7 +1856,8 @@ def start_auto_update_scheduler():
 
     try:
         # Cargar configuración
-        with open('auto_scraping_config.json', 'r', encoding='utf-8') as f:
+        config_path = str(project_root / 'backend' / 'config' / 'auto_scraping_config.json')
+        with open(config_path, 'r', encoding='utf-8') as f:
             config = json.load(f)
         
         auto_config = config.get('auto_scraping', {})
@@ -1892,7 +1902,8 @@ def start_auto_update_scheduler():
                         detect_and_add_new_newspaper(np_name)
                     
                     # Recargar configuración después de agregar periódicos nuevos
-                    with open('auto_scraping_config.json', 'r', encoding='utf-8') as f:
+                    config_path = str(project_root / 'backend' / 'config' / 'auto_scraping_config.json')
+                    with open(config_path, 'r', encoding='utf-8') as f:
                         config = json.load(f)
                     schedules = config.get('auto_scraping', {}).get('schedules', [])
                     enabled_schedules = [s for s in schedules if s.get('enabled', False)]
@@ -2188,7 +2199,7 @@ def init_database():
         
         # Inicializar sistema de anuncios
         try:
-            from ads_system import ads_system
+            from backend.systems.ads_system import ads_system
             ads_system.init_database()
             logger.info("✅ Sistema de anuncios inicializado")
         except Exception as e:
@@ -4374,7 +4385,7 @@ def viral_comments_endpoint():
                 return jsonify({'error': 'El comentario no puede exceder 2000 caracteres'}), 400
             
             # Analizar sentimiento automáticamente usando el analizador de sentimientos
-            from sentiment_analyzer import sentiment_analyzer
+            from backend.utils.sentiment_analyzer import sentiment_analyzer
             try:
                 sentiment_analysis = sentiment_analyzer.analyze_sentiment(comment_text)
                 sentiment = sentiment_analysis['polarity']  # 'positive', 'negative', o 'neutral'
@@ -4855,7 +4866,8 @@ def get_stats():
 def serve_image(filename):
     """Servir imágenes descargadas"""
     try:
-        return send_from_directory('scraped_images', filename)
+        images_dir = str(project_root / 'scraped_images')
+        return send_from_directory(images_dir, filename)
     except Exception as e:
         logger.error(f"❌ Error sirviendo imagen {filename}: {e}")
         return jsonify({'error': 'Imagen no encontrada'}), 404
@@ -5155,7 +5167,8 @@ def run_auto_scraping():
         # Calcular número de periódicos habilitados desde la configuración
         total_newspapers = 10  # Default
         try:
-            with open('auto_scraping_config.json', 'r', encoding='utf-8') as f:
+            config_path = str(project_root / 'backend' / 'config' / 'auto_scraping_config.json')
+            with open(config_path, 'r', encoding='utf-8') as f:
                 config = json.load(f)
                 schedules = config.get('auto_scraping', {}).get('schedules', [])
                 # Contar solo los habilitados
@@ -5692,7 +5705,7 @@ def get_ad_for_article():
     Parámetros: article_id (requerido), opcionalmente article_sentiment, article_sentiment_score, etc.
     """
     try:
-        from ads_system import ads_system
+        from backend.systems.ads_system import ads_system
         from sentiment_analyzer import sentiment_analyzer
         
         article_id = request.args.get('article_id', type=int)
@@ -5826,7 +5839,7 @@ def get_ad_for_article():
 def track_ad_event():
     """Registrar evento de anuncio (click, conversión)"""
     try:
-        from ads_system import ads_system
+        from backend.systems.ads_system import ads_system
         
         data = request.get_json()
         ad_id = data.get('ad_id')
@@ -5875,7 +5888,7 @@ def track_ad_event():
 def get_campaigns():
     """Obtener lista de campañas publicitarias"""
     try:
-        from ads_system import ads_system
+        from backend.systems.ads_system import ads_system
         
         status = request.args.get('status', None)
         campaigns = ads_system.get_campaigns(status=status)
@@ -5891,7 +5904,7 @@ def get_campaigns():
 def create_campaign():
     """Crear nueva campaña publicitaria"""
     try:
-        from ads_system import ads_system
+        from backend.systems.ads_system import ads_system
         
         data = request.get_json()
         if not data.get('name'):
@@ -5915,7 +5928,7 @@ def ads_endpoint():
     """Obtener anuncios o crear nuevo anuncio"""
     if request.method == 'GET':
         try:
-            from ads_system import ads_system
+            from backend.systems.ads_system import ads_system
             import sqlite3
             
             campaign_id = request.args.get('campaign_id', type=int)
@@ -5961,7 +5974,7 @@ def ads_endpoint():
     elif request.method == 'POST':
         """Crear nuevo anuncio"""
         try:
-            from ads_system import ads_system
+            from backend.systems.ads_system import ads_system
             
             data = request.get_json()
             if not data.get('campaign_id') or not data.get('title') or not data.get('click_url'):
@@ -5984,7 +5997,7 @@ def ads_endpoint():
 def get_ads_analytics():
     """Obtener métricas de anuncios por sentimiento"""
     try:
-        from ads_system import ads_system
+        from backend.systems.ads_system import ads_system
         
         campaign_id = request.args.get('campaign_id', type=int)
         days = request.args.get('days', 30, type=int)
@@ -6307,7 +6320,7 @@ def delete_newspaper_data(newspaper_name):
         deleted_files = 0
         for filename in image_urls:
             try:
-                image_path = os.path.join('scraped_images', filename)
+                image_path = str(project_root / 'scraped_images' / filename)
                 if os.path.exists(image_path):
                     os.remove(image_path)
                     deleted_files += 1
@@ -6886,7 +6899,7 @@ def generate_trending_predictions():
         
         # Importar el sistema de predicción
         try:
-            from trending_predictor_system import TrendingTopicsPredictor
+            from backend.systems.trending_predictor_system import TrendingTopicsPredictor
             predictor = TrendingTopicsPredictor()
         except ImportError as e:
             logger.error(f"Error importing TrendingTopicsPredictor: {e}")
@@ -6931,7 +6944,7 @@ def get_user_predictions():
         
         logger.info(f"Getting predictions for user {user_id}")
         
-        from trending_predictor_system import TrendingTopicsPredictor
+        from backend.systems.trending_predictor_system import TrendingTopicsPredictor
         predictor = TrendingTopicsPredictor()
         
         result = predictor.get_user_predictions(user_id, limit)
@@ -6949,7 +6962,7 @@ def get_daily_usage():
     try:
         user_id = request.current_user['user_id']
         
-        from trending_predictor_system import TrendingTopicsPredictor
+        from backend.systems.trending_predictor_system import TrendingTopicsPredictor
         predictor = TrendingTopicsPredictor()
         
         result = predictor.get_daily_usage(user_id)
@@ -7475,7 +7488,7 @@ def scrape_social_media():
         
         if platform == 'facebook':
             try:
-                from social_media_scraper import FacebookScraper
+                from backend.scrapers.social_media_scraper import FacebookScraper
                 import os
                 
                 # Intentar cargar .env si existe
@@ -7641,7 +7654,7 @@ def scrape_social_media():
         elif platform == 'reddit':
             # Scraping de Reddit
             try:
-                from social_media_scraper import RedditScraper
+                from backend.scrapers.social_media_scraper import RedditScraper
                 import os
                 
                 logger.info(f"🔍 Intentando scraping REAL de Reddit para: '{query}'...")
@@ -7859,7 +7872,7 @@ def scrape_social_media():
                 
         elif platform == 'youtube':
             try:
-                from social_media_scraper import YouTubeScraper
+                from backend.scrapers.social_media_scraper import YouTubeScraper
                 import os
 
                 # Intentar cargar .env si existe
@@ -8069,8 +8082,8 @@ def scrape_social_media():
                 logger.info(f"📊 Procesando {len(final_posts)} posts REALES de {platform}...")
                 message_type = "REALES"
 
-            from social_media_processor import SocialMediaProcessor
-            from social_media_db import SocialMediaDB
+            from backend.systems.social_media_processor import SocialMediaProcessor
+            from backend.systems.social_media_db import SocialMediaDB
 
             processor = SocialMediaProcessor()
             processed_posts = processor.process_batch(final_posts)
@@ -8220,7 +8233,7 @@ def get_social_media_posts():
         limit = min(request.args.get('limit', 100, type=int), 1000)
         offset = request.args.get('offset', 0, type=int)
         
-        from social_media_db import SocialMediaDB
+        from backend.systems.social_media_db import SocialMediaDB
         db = SocialMediaDB()
         
         posts = db.get_posts(
@@ -8258,7 +8271,7 @@ def get_social_media_posts():
 def get_social_media_stats():
     """Obtener estadísticas de redes sociales"""
     try:
-        from social_media_db import SocialMediaDB
+        from backend.systems.social_media_db import SocialMediaDB
         db = SocialMediaDB()
         
         stats = db.get_stats()

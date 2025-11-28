@@ -12,7 +12,7 @@ from datetime import datetime
 from urllib.parse import urljoin, urlparse
 import time
 import re
-from pagination_crawler import PaginationCrawler
+from backend.scrapers.pagination_crawler import PaginationCrawler
 
 logger = logging.getLogger(__name__)
 

@@ -50,7 +50,7 @@ cd ..
 
 # 4. Verificar que el backend esté en puerto 5002
 print_status "Verificando configuración del backend..."
-if grep -q "port=5002" api_server.py; then
+if grep -q "port=5002" backend/core/api_server.py; then
     print_success "Backend configurado para puerto 5002"
 else
     print_error "Backend NO está en puerto 5002"
@@ -70,7 +70,7 @@ print_status "Iniciando aplicación (SIN WebSocket)..."
 # Iniciar backend
 print_status "Iniciando backend..."
 source venv/bin/activate
-python api_server.py &
+python backend/core/api_server.py &
 BACKEND_PID=$!
 sleep 5
 
