@@ -98,3 +98,17 @@ geckodriver*
 # Auto-generated files
 auto_scraping.log
 scraper_cache.db
+
+# Temporary scraping data files
+facebook_posts_*.json
+*_posts_*.json
+scraped_images/
+
+# Process IDs and runtime files
+*.pid
+api_server.pid
+backend.log
+frontend.log
+
+# Configuration files with sensitive data (keep templates, ignore actual configs)
+# auto_scraping_config.json  # Descomenta si contiene datos sensibles
